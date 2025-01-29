@@ -123,31 +123,11 @@ if 'latest_order' in st.session_state:
                 for line in order_lines:
                     if isinstance(line, dict):
                         item = line.get("item", {})
-                        charges = line.get("charges", [])
                         
-                        # Debug logging for charges
-                        st.write("Charges for line item:", charges)
-                        
-                        # Calculate total line amount from all charge types
-                        total_line_amount = 0
-                        for charge in charges:
-                            if isinstance(charge, dict):
-                                charge_amount = charge.get("chargeAmount", {})
-                                if isinstance(charge_amount, dict):
-                                    amount = charge_amount.get("amount")
-                                    if amount:
-                                        try:
-                                            total_line_amount += float(amount)
-                                        except (ValueError, TypeError):
-                                            st.warning(f"Invalid charge amount: {amount}")
-                        
-                        # Convert quantity to float and ensure it's not zero
+                        # Get the amount directly from the order line
+                        amount = float(line.get("charges", [{}])[0].get("chargeAmount", {}).get("amount", 0))
                         quantity = float(line.get("orderLineQuantity", {}).get("amount", 1))
                         quantity = quantity if quantity > 0 else 1
-                        
-                        # Debug logging
-                        st.write(f"Total line amount: ${total_line_amount:.2f}")
-                        st.write(f"Quantity: {quantity}")
                         
                         processed_order.append({
                             "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
@@ -155,8 +135,8 @@ if 'latest_order' in st.session_state:
                             "Item Name": item.get("productName", "N/A"),
                             "SKU": item.get("sku", "N/A"),
                             "Quantity": quantity,
-                            "Unit Price ($)": total_line_amount / quantity if quantity > 0 else 0,
-                            "Total Line Amount ($)": total_line_amount,
+                            "Unit Price ($)": amount / quantity if quantity > 0 else 0,
+                            "Total Line Amount ($)": amount,
                             "Status": order.get("orderStatus", "N/A")
                         })
         
