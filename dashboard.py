@@ -70,9 +70,7 @@ def fetch_orders(token):
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
-        st.subheader("API Response")
-        st.json(orders)  # Display full API response for debugging
-        return orders.get("list", {}).get("elements", [])  # Adjusted based on API response structure
+        return orders.get("list", {}).get("elements", [])
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
         return []
@@ -117,6 +115,9 @@ if 'orders' in st.session_state:
             
             # Formatted Data Table
             st.subheader("Order Details")
-            st.dataframe(df[["purchaseOrderId", "orderDate", "totalAmount"]])
+            st.dataframe(df[["purchaseOrderId", "orderDate", "totalAmount"]].style.set_table_attributes('class="dataframe"').set_table_styles(
+                [{'selector': 'th', 'props': [('font-size', '14px'), ('text-align', 'center')]},
+                 {'selector': 'td', 'props': [('font-size', '12px'), ('text-align', 'center')]}]
+            ))
     else:
         st.warning("No orders found.")
