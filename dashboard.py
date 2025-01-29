@@ -51,21 +51,25 @@ def fetch_orders(token):
     if not token:
         st.error("Error: No valid token provided for fetching orders.")
         return []
+    
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
         "WM_SVC.NAME": "Walmart Marketplace",
-        "WM_SEC.ACCESS_TOKEN": token  # Ensure token is passed correctly
+        "WM_SEC.ACCESS_TOKEN": token
     }
+
     # Adding date range for querying orders
     start_date = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime('%Y-%m-%dT00:00:00.000Z')
     end_date = datetime.datetime.now().strftime('%Y-%m-%dT23:59:59.000Z')
+
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
         "createdStartDate": start_date,
         "createdEndDate": end_date
     }
+
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
