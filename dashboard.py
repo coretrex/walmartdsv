@@ -135,8 +135,12 @@ if 'latest_order' in st.session_state:
                     if isinstance(line, dict):
                         item = line.get("item", {})
                         
-                        # Get amount directly from the line item
-                        unit_price = float(line.get("item", {}).get("unitPrice", {}).get("amount", 0))
+                        # Get amount directly from the charges array
+                        charges = line.get("charges", [])
+                        unit_price = 0
+                        if charges and isinstance(charges, list):
+                            charge_amount = charges[0].get("chargeAmount", {})
+                            unit_price = float(charge_amount.get("amount", 0))
                         
                         quantity = float(line.get("orderLineQuantity", {}).get("amount", 1))
                         quantity = quantity if quantity > 0 else 1
