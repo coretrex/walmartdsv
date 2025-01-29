@@ -94,10 +94,15 @@ if 'orders' in st.session_state:
         processed_orders = []
         for order in orders:
             if isinstance(order, dict):
+                total_amount = sum(
+                    line.get("charges", [{}])[0].get("chargeAmount", {}).get("amount", 0) 
+                    for line in order.get("orderLines", []) 
+                    if isinstance(line, dict)
+                )
                 processed_orders.append({
                     "purchaseOrderId": order.get("purchaseOrderId", "N/A"),
                     "orderDate": order.get("orderDate", "N/A"),
-                    "totalAmount": sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in order.get("orderLines", []) if isinstance(line, dict))
+                    "totalAmount": total_amount
                 })
         
         df = pd.DataFrame(processed_orders)
@@ -108,19 +113,23 @@ if 'orders' in st.session_state:
         
         # Display Data
         st.subheader("Sales Overview")
-        total_sales = df["totalAmount"].sum()
-        total_orders = len(df)
-        st.metric("Total Sales", f"${total_sales:,.2f}")
-        st.metric("Total Orders", total_orders)
+        if not df.empty:
+            total_sales = df["totalAmount"].sum()
+            total_orders = len(df)
+            st.metric("Total Sales", f"${total_sales:,.2f}")
+            st.metric("Total Orders", total_orders)
+        else:
+            st.warning("No valid order data found.")
         
         # Sales Over Time
-        if "orderDate" in df.columns:
+        if "orderDate" in df.columns and not df.empty:
             df['date'] = df['orderDate'].dt.date
             sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
             st.line_chart(sales_summary.set_index('date'))
         
         # Formatted Data Table
         st.subheader("Order Details")
-        st.dataframe(df)
-    else:
-        st.warning("No orders found.")
+        if not df.empty:
+            st.dataframe(df)
+        else:
+            st.warning("No orders found.")
