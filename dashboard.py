@@ -101,7 +101,20 @@ def fetch_latest_order(token):
         return []
 
 # Streamlit Dashboard Setup
-st.title("Walmart DSV Latest Order Dashboard")
+st.title("Walmart DSV Dashboard")
+
+# Add custom CSS to make the table larger
+st.markdown("""
+    <style>
+        .stDataFrame {
+            width: 100%;
+        }
+        .stDataFrame [data-testid="stDataFrameResizable"] {
+            min-height: 450px;
+            width: 100%;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
 # Sidebar controls
 st.sidebar.header("Settings")
@@ -197,12 +210,13 @@ if 'latest_order' in st.session_state:
             ]
         
         # Display Data
-        st.header("Order Details")
         if not df.empty:
-            # Style the dataframe
+            # Style the dataframe with increased height
             st.dataframe(
                 df,
                 hide_index=True,
+                height=450,  # Explicitly set height
+                use_container_width=True,  # Use full width of container
                 column_config={
                     "SKU": st.column_config.TextColumn(
                         "SKU",
