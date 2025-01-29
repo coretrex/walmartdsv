@@ -108,7 +108,8 @@ st.markdown("""
             width: 100%;
         }
         section[data-testid="stSidebar"] {
-            width: 200px !important;
+            width: 250px !important;  /* Increased sidebar width */
+            padding-right: 1rem;
         }
         /* Reduce padding of the main content area */
         .css-1d391kg {
@@ -119,6 +120,16 @@ st.markdown("""
         .css-1v0mbdj {
             width: 100%;
             max-width: 100%;
+        }
+        /* Ensure date picker is fully visible */
+        .css-1544g2n {
+            margin-left: 0;
+            padding-left: 0;
+            width: 100%;
+        }
+        /* Adjust sidebar padding */
+        .css-1s8hy3r {
+            padding: 2rem 1rem;
         }
     </style>
 """, unsafe_allow_html=True)
