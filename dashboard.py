@@ -32,7 +32,7 @@ def get_walmart_token():
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
         "WM_SVC.NAME": "Walmart Marketplace"
     }
-    data = {"grant_type": "client_credentials"}
+    data = "grant_type=client_credentials"
     try:
         response = requests.post(TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
@@ -55,7 +55,8 @@ def fetch_orders(token):
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
-        "WM_SVC.NAME": "Walmart Marketplace"
+        "WM_SVC.NAME": "Walmart Marketplace",
+        "WM_SEC.ACCESS_TOKEN": token  # Ensure token is passed correctly
     }
     params = {"shipNode": DEFAULT_SHIP_NODE}
     try:
