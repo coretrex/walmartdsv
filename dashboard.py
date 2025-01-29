@@ -103,9 +103,14 @@ def fetch_latest_order(token):
 # Streamlit Dashboard Setup
 st.title("Walmart DSV Dashboard")
 
-# Add custom CSS to make the table larger
+# Add custom CSS to make the table larger and reduce margins
 st.markdown("""
     <style>
+        .main .block-container {
+            padding-left: 2rem;
+            padding-right: 2rem;
+            max-width: 95%;
+        }
         .stDataFrame {
             width: 100%;
         }
