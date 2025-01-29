@@ -134,24 +134,9 @@ if 'latest_order' in st.session_state:
                 for line in order_lines:
                     if isinstance(line, dict):
                         item = line.get("item", {})
-                        charges = line.get("charges", [])
                         
-                        # Calculate unit price from item charges
-                        unit_price = 0
-                        if isinstance(charges, list) and charges:
-                            # Try to get unit price from the first charge
-                            first_charge = charges[0]
-                            if isinstance(first_charge, dict):
-                                charge_amount = first_charge.get("chargeAmount", {})
-                                if isinstance(charge_amount, dict):
-                                    amount_str = charge_amount.get("amount", "0")
-                                    try:
-                                        unit_price = float(amount_str)
-                                    except (ValueError, TypeError):
-                                        unit_price = 0
-                        
-                        # Debug print to see the charge structure
-                        st.write("Charges for debugging:", charges)
+                        # Get amount directly from the line item
+                        unit_price = float(line.get("item", {}).get("unitPrice", {}).get("amount", 0))
                         
                         quantity = float(line.get("orderLineQuantity", {}).get("amount", 1))
                         quantity = quantity if quantity > 0 else 1
