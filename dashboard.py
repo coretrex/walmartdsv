@@ -3,6 +3,15 @@ import pandas as pd
 import streamlit as st
 import datetime
 
+# Ensure required modules are installed
+try:
+    import requests
+    import pandas as pd
+    import streamlit as st
+except ModuleNotFoundError as e:
+    st.error(f"Missing module: {e.name}. Please install the required dependencies.")
+    raise
+
 # Walmart DSV API Credentials
 CLIENT_ID = "f657e76c-6e19-4459-8fda-ecf3ee17db44"
 CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc"
@@ -12,19 +21,20 @@ ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
 # Function to get Walmart API token
 def get_walmart_token():
     headers = {
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Accept": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        "WM_SVC.NAME": "Walmart Marketplace",
+        "WM_QOS.CORRELATION_ID": "1234567890",
+        "WM_CONSUMER.ID": CLIENT_ID,
+        "WM_CONSUMER.SECRET": CLIENT_SECRET
     }
-    data = {
-        "grant_type": "client_credentials",
-        "client_id": CLIENT_ID,
-        "client_secret": CLIENT_SECRET
-    }
+    data = {"grant_type": "client_credentials"}
     try:
         response = requests.post(TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
         return response.json().get("access_token")
     except requests.RequestException as e:
-        st.error(f"Failed to get Walmart API token: {str(e)}")
+        st.error(f"Failed to get Walmart API token: {str(e)} - Response: {response.text}")
         return None
 
 # Function to fetch orders from Walmart API
@@ -38,7 +48,7 @@ def fetch_orders(token):
         response.raise_for_status()
         return response.json().get("orders", [])
     except requests.RequestException as e:
-        st.error(f"Failed to fetch orders from Walmart API: {str(e)}")
+        st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
         return []
 
 # Streamlit Dashboard Setup
