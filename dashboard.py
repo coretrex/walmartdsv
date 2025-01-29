@@ -3,6 +3,7 @@ import pandas as pd
 import streamlit as st
 import datetime
 import base64
+import uuid
 
 # Ensure required modules are installed
 try:
@@ -26,7 +27,9 @@ def get_walmart_token():
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {encoded_credentials}"
+        "Authorization": f"Basic {encoded_credentials}",
+        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),  # Generates a unique ID for each request
+        "WM_SVC.NAME": "Walmart Marketplace"
     }
     data = {"grant_type": "client_credentials"}
     try:
