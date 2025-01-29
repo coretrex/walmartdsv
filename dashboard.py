@@ -90,14 +90,16 @@ if refresh or 'orders' not in st.session_state:
 if 'orders' in st.session_state:
     orders = st.session_state['orders']
     if orders:
-        # Extract purchaseOrderId if nested
+        # Ensure all items are dictionaries before processing
         processed_orders = []
         for order in orders:
-            processed_orders.append({
-                "purchaseOrderId": order.get("purchaseOrderId", "N/A"),
-                "orderDate": order.get("orderDate", "N/A"),
-                "totalAmount": sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in order.get("orderLines", []))
-            })
+            if isinstance(order, dict):
+                processed_orders.append({
+                    "purchaseOrderId": order.get("purchaseOrderId", "N/A"),
+                    "orderDate": order.get("orderDate", "N/A"),
+                    "totalAmount": sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in order.get("orderLines", []) if isinstance(line, dict))
+                })
+        
         df = pd.DataFrame(processed_orders)
         
         # Convert orderDate to datetime
