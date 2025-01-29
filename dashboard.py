@@ -70,7 +70,6 @@ def fetch_orders(token):
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
-        st.json(orders)  # Show full API response for debugging
         return orders.get("elements", [])
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
@@ -114,8 +113,8 @@ if 'orders' in st.session_state:
                 sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
                 st.line_chart(sales_summary.set_index('date'))
             
-            # Raw Data Table
+            # Formatted Data Table
             st.subheader("Order Details")
-            st.dataframe(df[["purchaseOrderId", "orderDate", "totalAmount"]])
+            st.dataframe(df[["purchaseOrderId", "orderDate", "totalAmount"]].style.set_properties(**{'text-align': 'left'}))
     else:
         st.warning("No orders found.")
