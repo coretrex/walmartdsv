@@ -19,6 +19,7 @@ CLIENT_ID = "f657e76c-6e19-4459-8fda-ecf3ee17db44"
 CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc"
 TOKEN_URL = "https://marketplace.walmartapis.com/v3/token"
 ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
+DEFAULT_SHIP_NODE = "YOUR_ACTUAL_SHIP_NODE"  # Replace with your real Ship Node ID
 
 # Function to get Walmart API token
 def get_walmart_token():
@@ -27,9 +28,7 @@ def get_walmart_token():
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {encoded_credentials}",
-        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
-        "WM_SVC.NAME": "Walmart Marketplace"
+        "Authorization": f"Basic {encoded_credentials}"
     }
     data = {"grant_type": "client_credentials"}
     try:
@@ -56,8 +55,8 @@ def fetch_orders(token):
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
         "WM_SVC.NAME": "Walmart Marketplace"
     }
-    ship_node = st.sidebar.text_input("Enter Ship Node", "your_ship_node")  # User must enter a valid shipNode
-    if ship_node == "your_ship_node":
+    ship_node = st.sidebar.text_input("Enter Ship Node", DEFAULT_SHIP_NODE)
+    if not ship_node or ship_node == "YOUR_ACTUAL_SHIP_NODE":
         st.warning("Please enter a valid Ship Node ID in the sidebar.")
         return []
     params = {"shipNode": ship_node}
