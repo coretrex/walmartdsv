@@ -63,8 +63,8 @@ def fetch_latest_order(token):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 10,  # Increased limit
-        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%dT00:00:00.000Z')  # Look back 30 days
+        "limit": 10,
+        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%dT00:00:00.000Z')
     }
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
@@ -74,20 +74,15 @@ def fetch_latest_order(token):
         # Debug logs
         st.info(f"API Response Status Code: {response.status_code}")
         
-        # Display the raw response structure for debugging
-        st.info("API Response Structure:")
-        st.json(orders)
-        
         if not orders:
             st.warning("Received empty response from API")
             return []
             
-        order_list = orders.get("list", {}).get("elements", [])  # Changed path to match API structure
-        if not order_list:
-            order_list = orders.get("orders", {}).get("elements", [])  # Try alternate path
+        # Get the order list from the correct path in the response
+        order_list = orders.get("list", {}).get("elements", {}).get("order", [])
         
-        if not isinstance(order_list, list):
-            st.error("Unexpected API response format. Expected a list of orders.")
+        if not order_list:
+            st.warning("No orders found in the response")
             return []
         
         st.info(f"Found {len(order_list)} orders")
