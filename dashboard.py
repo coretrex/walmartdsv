@@ -70,6 +70,8 @@ def fetch_orders(token):
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
+        st.subheader("API Response")
+        st.json(orders)  # Display full API response for debugging
         return orders.get("list", {}).get("elements", [])
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
@@ -94,10 +96,11 @@ if 'orders' in st.session_state:
         processed_orders = []
         for order in orders:
             if isinstance(order, dict):
+                order_lines = order.get("orderLines", [])
                 total_amount = sum(
-                    line.get("charges", [{}])[0].get("chargeAmount", {}).get("amount", 0) 
-                    for line in order.get("orderLines", []) 
-                    if isinstance(line, dict)
+                    charge.get("chargeAmount", {}).get("amount", 0)
+                    for line in order_lines if isinstance(line, dict)
+                    for charge in line.get("charges", []) if isinstance(charge, dict)
                 )
                 processed_orders.append({
                     "purchaseOrderId": order.get("purchaseOrderId", "N/A"),
