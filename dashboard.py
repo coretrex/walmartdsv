@@ -102,9 +102,12 @@ def fetch_latest_order(token):
 
 # Streamlit Dashboard Setup
 st.title("Walmart DSV Latest Order Dashboard")
+
+# Sidebar controls
 st.sidebar.header("Settings")
 refresh = st.sidebar.button("Refresh Data")
 
+# Get the data
 if refresh or 'latest_order' not in st.session_state:
     token = get_walmart_token()
     if token:
@@ -129,11 +132,9 @@ if 'latest_order' in st.session_state:
                         charges = line.get("charges", [])
                         amount = 0
                         
-                        # Try to get the amount from the order line directly
                         try:
                             amount = float(line.get("amount", 0))
                         except (ValueError, TypeError):
-                            # If direct amount fails, try to get it from charges
                             if isinstance(charges, list) and charges:
                                 try:
                                     first_charge = charges[0]
@@ -169,33 +170,71 @@ if 'latest_order' in st.session_state:
         if "Total Line Amount ($)" in df.columns:
             df["Total Line Amount ($)"] = df["Total Line Amount ($)"].round(2)
         
+        # Add SKU filter in sidebar
+        st.sidebar.header("Filters")
+        all_skus = ["All"] + sorted(df["SKU"].unique().tolist())
+        selected_sku = st.sidebar.selectbox("Filter by SKU", all_skus)
+        
+        # Apply SKU filter
+        if selected_sku != "All":
+            df = df[df["SKU"] == selected_sku]
+        
         # Display Data
-        st.subheader("Latest Order Details")
+        st.header("Order Details")
         if not df.empty:
+            # Style the dataframe
             st.dataframe(
                 df,
                 hide_index=True,
                 column_config={
-                    "Purchase Order ID": st.column_config.TextColumn("Purchase Order ID", width="medium"),
-                    "Order Date": st.column_config.TextColumn("Order Date", width="medium"),
-                    "Item Name": st.column_config.TextColumn("Item Name", width="large"),
-                    "SKU": st.column_config.TextColumn("SKU", width="small"),
-                    "Quantity": st.column_config.NumberColumn("Quantity", width="small"),
-                    "Unit Price ($)": st.column_config.NumberColumn("Unit Price ($)", format="$%.2f", width="small"),
-                    "Total Line Amount ($)": st.column_config.NumberColumn("Total Line Amount ($)", format="$%.2f", width="medium"),
-                    "Status": st.column_config.TextColumn("Status", width="small")
+                    "Purchase Order ID": st.column_config.TextColumn(
+                        "Purchase Order ID",
+                        width="medium",
+                        help="Walmart Purchase Order ID"
+                    ),
+                    "Order Date": st.column_config.DatetimeColumn(
+                        "Order Date",
+                        width="medium",
+                        format="MM/DD/YYYY HH:mm"
+                    ),
+                    "Item Name": st.column_config.TextColumn(
+                        "Item Name",
+                        width="large"
+                    ),
+                    "SKU": st.column_config.TextColumn(
+                        "SKU",
+                        width="small"
+                    ),
+                    "Quantity": st.column_config.NumberColumn(
+                        "Quantity",
+                        width="small",
+                        format="%d"
+                    ),
+                    "Unit Price ($)": st.column_config.NumberColumn(
+                        "Unit Price ($)",
+                        width="small",
+                        format="$%.2f"
+                    ),
+                    "Total Line Amount ($)": st.column_config.NumberColumn(
+                        "Total Line Amount ($)",
+                        width="medium",
+                        format="$%.2f"
+                    ),
+                    "Status": st.column_config.TextColumn(
+                        "Status",
+                        width="small"
+                    )
                 }
             )
             
-            # Display order summary
-            st.subheader("Order Summary")
-            total_order_amount = df["Total Line Amount ($)"].sum()
-            total_items = df["Quantity"].sum()
-            
-            col1, col2 = st.columns(2)
+            # Display order summary in metrics
+            st.header("Order Summary")
+            col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Total Order Amount", f"${total_order_amount:.2f}")
+                st.metric("Total Order Amount", f"${df['Total Line Amount ($)'].sum():.2f}")
             with col2:
-                st.metric("Total Items", f"{total_items}")
+                st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
+            with col3:
+                st.metric("Number of Orders", f"{df['Purchase Order ID'].nunique()}")
         else:
-            st.warning("No latest order found.")
+            st.warning("No orders found for the selected criteria.")
