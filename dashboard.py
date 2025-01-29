@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import streamlit as st
 import datetime
+import base64
 
 # Ensure required modules are installed
 try:
@@ -20,13 +21,12 @@ ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
 
 # Function to get Walmart API token
 def get_walmart_token():
+    credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
+    encoded_credentials = base64.b64encode(credentials.encode()).decode()
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "WM_SVC.NAME": "Walmart Marketplace",
-        "WM_QOS.CORRELATION_ID": "1234567890",
-        "WM_CONSUMER.ID": CLIENT_ID,
-        "WM_CONSUMER.SECRET": CLIENT_SECRET
+        "Authorization": f"Basic {encoded_credentials}"
     }
     data = {"grant_type": "client_credentials"}
     try:
