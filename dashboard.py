@@ -52,8 +52,6 @@ def fetch_latest_order(token):
         st.error("Error: No valid token provided for fetching orders.")
         return []
     
-    st.info("Attempting to fetch orders...")
-    
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -63,7 +61,7 @@ def fetch_latest_order(token):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 10,  # Increased to ensure we get enough orders
+        "limit": 10,
         "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%dT00:00:00.000Z')
     }
     try:
@@ -71,33 +69,24 @@ def fetch_latest_order(token):
         response.raise_for_status()
         orders = response.json()
         
-        # Debug logs
-        st.info(f"API Response Status Code: {response.status_code}")
-        
         if not orders:
-            st.warning("Received empty response from API")
             return []
             
-        # Get the order list from the correct path in the response
         order_list = orders.get("list", {}).get("elements", {}).get("order", [])
         
         if not order_list:
-            st.warning("No orders found in the response")
             return []
         
-        st.info(f"Found {len(order_list)} orders")
-        
-        # Sort by orderDate in descending order and take the last 5 orders
         order_list = [o for o in order_list if isinstance(o, dict)]
         if not order_list:
-            st.warning("No valid orders found in the response")
             return []
         
         # Sort by orderDate in descending order and take the first 5
         sorted_orders = sorted(order_list, key=lambda x: x.get("orderDate", ""), reverse=True)[:5]
-        return sorted_orders  # Return the 5 most recent orders
+        return sorted_orders
+
     except requests.RequestException as e:
-        st.error(f"Failed to fetch latest order from Walmart API: {str(e)} - Response: {response.text}")
+        st.error(f"Failed to fetch latest order from Walmart API: {str(e)}")
         return []
 
 # Streamlit Dashboard Setup
