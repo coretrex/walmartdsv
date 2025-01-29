@@ -4,6 +4,7 @@ import streamlit as st
 import datetime
 import uuid
 import base64
+import os
 
 # Ensure required modules are installed
 try:
@@ -266,3 +267,33 @@ if 'latest_order' in st.session_state:
                 st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
         else:
             st.warning("No orders found for the selected criteria.")
+
+def load_login_page():
+    # Read the HTML and CSS files
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    
+    with open(os.path.join(current_dir, 'templates', 'login.html'), 'r') as file:
+        login_html = file.read()
+        
+    with open(os.path.join(current_dir, 'static', 'styles.css'), 'r') as file:
+        css = file.read()
+    
+    # Inject the CSS into the HTML
+    login_html = f"<style>{css}</style>\n{login_html}"
+    
+    # Display the login page
+    st.components.v1.html(login_html, height=600)
+
+def login():
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+
+    if not st.session_state.logged_in:
+        load_login_page()
+        return False
+    return True
+
+# Main app logic
+if login():
+    # Your existing dashboard code here
+    # ... existing code ...
