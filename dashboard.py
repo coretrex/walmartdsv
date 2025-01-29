@@ -5,6 +5,7 @@ import datetime
 import uuid
 import base64
 import os
+import sqlite3
 
 # Ensure required modules are installed
 try:
@@ -29,6 +30,7 @@ CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5
 TOKEN_URL = "https://marketplace.walmartapis.com/v3/token"
 ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
 DEFAULT_SHIP_NODE = "39931104"
+DATABASE_PATH = "walmart_orders.db"
 
 # Function to get Walmart API token
 def get_walmart_token():
@@ -267,3 +269,18 @@ if 'latest_order' in st.session_state:
                 st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
         else:
             st.warning("No orders found for the selected criteria.")
+
+def init_database():
+    conn = sqlite3.connect(DATABASE_PATH)
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS orders
+                 (purchase_order_id TEXT PRIMARY KEY,
+                  sku TEXT,
+                  product_name TEXT,
+                  quantity REAL,
+                  unit_price REAL,
+                  order_date TIMESTAMP)''')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_order_date ON orders(order_date)')
+    c.execute('CREATE INDEX IF NOT EXISTS idx_sku ON orders(sku)')
+    conn.commit()
+    conn.close()
