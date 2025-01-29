@@ -108,35 +108,39 @@ st.markdown("""
             width: 100%;
         }
         section[data-testid="stSidebar"] {
-            width: 250px !important;  /* Increased sidebar width */
-            padding-right: 1rem;
-        }
-        /* Reduce padding of the main content area */
-        .css-1d391kg {
-            padding-left: 1rem;
-            padding-right: 1rem;
-        }
-        /* Make sure content uses maximum width */
-        .css-1v0mbdj {
-            width: 100%;
-            max-width: 100%;
-        }
-        /* Ensure date picker is fully visible */
-        .css-1544g2n {
-            margin-left: 0;
-            padding-left: 0;
-            width: 100%;
-        }
-        /* Adjust sidebar padding */
-        .css-1s8hy3r {
+            width: 350px !important;  /* Increased width */
             padding: 2rem 1rem;
         }
     </style>
 """, unsafe_allow_html=True)
 
 # Sidebar controls
-st.sidebar.header("Settings")
-refresh = st.sidebar.button("Refresh Data")
+with st.sidebar:
+    st.header("Settings")
+    refresh = st.button("Refresh Data")
+    
+    st.header("Filters")
+    # Add spacing before filters
+    st.write("")
+    
+    # SKU Filter
+    if 'latest_order' in st.session_state and st.session_state['latest_order']:
+        df = pd.DataFrame(processed_order)
+        all_skus = ["All"] + sorted(df["SKU"].unique().tolist())
+        selected_sku = st.selectbox("Filter by SKU", all_skus)
+    
+    # Date Filter with more space
+    st.write("")
+    st.write("Select Date Range")
+    if 'latest_order' in st.session_state and st.session_state['latest_order']:
+        min_date = df["Order Date"].min().date()
+        max_date = df["Order Date"].max().date()
+        selected_date_range = st.date_input(
+            "",  # Empty label since we're using write() above
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date
+        )
 
 # Get the data
 if refresh or 'latest_order' not in st.session_state:
@@ -192,23 +196,6 @@ if 'latest_order' in st.session_state:
         # Format numeric columns
         if "Unit Price ($)" in df.columns:
             df["Unit Price ($)"] = df["Unit Price ($)"].round(2)
-        
-        # Add filters in sidebar
-        st.sidebar.header("Filters")
-        
-        # SKU filter
-        all_skus = ["All"] + sorted(df["SKU"].unique().tolist())
-        selected_sku = st.sidebar.selectbox("Filter by SKU", all_skus)
-        
-        # Date filter
-        min_date = df["Order Date"].min().date()
-        max_date = df["Order Date"].max().date()
-        selected_date_range = st.sidebar.date_input(
-            "Select Date Range",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date
-        )
         
         # Apply filters
         if selected_sku != "All":
