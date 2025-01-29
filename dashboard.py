@@ -27,11 +27,9 @@ def get_walmart_token():
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {encoded_credentials}",
-        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
-        "WM_SVC.NAME": "Walmart Marketplace"
+        "Authorization": f"Basic {encoded_credentials}"
     }
-    data = {"grant_type": "client_credentials"}
+    data = "grant_type=client_credentials"
     try:
         response = requests.post(TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
@@ -56,11 +54,15 @@ def fetch_orders(token):
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
         "WM_SVC.NAME": "Walmart Marketplace"
     }
-    params = {"shipNode": "your_ship_node"}  # Replace with valid shipNode
+    ship_node = st.sidebar.text_input("Enter Ship Node", "your_ship_node")  # User must enter a valid shipNode
+    if ship_node == "your_ship_node":
+        st.warning("Please enter a valid Ship Node ID in the sidebar.")
+        return []
+    params = {"shipNode": ship_node}
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
-        return response.json().get("elements", [])  # Corrected response parsing based on Walmart API
+        return response.json().get("elements", [])
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
         return []
