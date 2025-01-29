@@ -28,11 +28,11 @@ def get_walmart_token():
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
         "Authorization": f"Basic {encoded_credentials}",
-        "WM_QOS.CORRELATION_ID": str(uuid.uuid4())
+        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
+        "WM_SVC.NAME": "Walmart Marketplace"
     }
-    data = {"grant_type": "client_credentials"}
     try:
-        response = requests.post(TOKEN_URL, headers=headers, data=data)
+        response = requests.post(TOKEN_URL, headers=headers)
         response.raise_for_status()
         token_data = response.json()
         access_token = token_data.get("access_token")
@@ -55,10 +55,11 @@ def fetch_orders(token):
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
         "WM_SVC.NAME": "Walmart Marketplace"
     }
+    params = {"shipNode": "your_ship_node"}  # Replace with valid shipNode
     try:
-        response = requests.get(ORDERS_URL, headers=headers)
+        response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
-        return response.json().get("orders", [])
+        return response.json().get("list", [])  # Walmart API returns 'list' instead of 'orders'
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
         return []
@@ -79,8 +80,8 @@ if 'orders' in st.session_state:
     orders = st.session_state['orders']
     if orders:
         df = pd.DataFrame(orders)
-        if "purchaseDate" in df.columns:
-            df["purchaseDate"] = pd.to_datetime(df["purchaseDate"], errors='coerce')
+        if "orderDate" in df.columns:
+            df["orderDate"] = pd.to_datetime(df["orderDate"], errors='coerce')
         
         if "orderLines" in df.columns:
             df["totalAmount"] = df["orderLines"].apply(lambda x: sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in x) if isinstance(x, list) else 0)
@@ -93,13 +94,13 @@ if 'orders' in st.session_state:
         st.metric("Total Orders", total_orders)
         
         # Sales Over Time
-        if "purchaseDate" in df.columns:
-            df['date'] = df['purchaseDate'].dt.date
+        if "orderDate" in df.columns:
+            df['date'] = df['orderDate'].dt.date
             sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
             st.line_chart(sales_summary.set_index('date'))
         
         # Raw Data Table
         st.subheader("Order Details")
-        st.dataframe(df[["purchaseDate", "totalAmount"]])
+        st.dataframe(df[["orderDate", "totalAmount"]])
     else:
         st.warning("No orders found.")
