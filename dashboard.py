@@ -46,8 +46,8 @@ def get_walmart_token():
         st.error(f"Failed to get Walmart API token: {str(e)} - Response: {response.text}")
         return None
 
-# Function to fetch orders from Walmart API
-def fetch_orders(token):
+# Function to fetch latest order from Walmart API
+def fetch_latest_order(token):
     if not token:
         st.error("Error: No valid token provided for fetching orders.")
         return []
@@ -58,43 +58,36 @@ def fetch_orders(token):
         "WM_SVC.NAME": "Walmart Marketplace",
         "WM_SEC.ACCESS_TOKEN": token
     }
-    # Limit the date range to the last 3 days
-    start_date = (datetime.datetime.now() - datetime.timedelta(days=3)).strftime('%Y-%m-%dT00:00:00.000Z')
-    end_date = datetime.datetime.now().strftime('%Y-%m-%dT23:59:59.000Z')
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "createdStartDate": start_date,
-        "createdEndDate": end_date
+        "limit": 1  # Retrieve only the latest order
     }
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
-        st.subheader("API Response")
-        st.json(orders)  # Display full API response for debugging
         return orders.get("list", {}).get("elements", [])
     except requests.RequestException as e:
-        st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
+        st.error(f"Failed to fetch latest order from Walmart API: {str(e)} - Response: {response.text}")
         return []
 
 # Streamlit Dashboard Setup
-st.title("Walmart DSV Sales Dashboard")
+st.title("Walmart DSV Latest Order Dashboard")
 st.sidebar.header("Settings")
 refresh = st.sidebar.button("Refresh Data")
 
-if refresh or 'orders' not in st.session_state:
+if refresh or 'latest_order' not in st.session_state:
     token = get_walmart_token()
     if token:
-        orders = fetch_orders(token)
-        st.session_state['orders'] = orders
+        latest_order = fetch_latest_order(token)
+        st.session_state['latest_order'] = latest_order
 
-# Process Orders Data
-if 'orders' in st.session_state:
-    orders = st.session_state['orders']
-    if orders:
-        # Ensure all items are dictionaries before processing
-        processed_orders = []
-        for order in orders:
+# Process Latest Order Data
+if 'latest_order' in st.session_state:
+    latest_order = st.session_state['latest_order']
+    if latest_order:
+        processed_order = []
+        for order in latest_order:
             if isinstance(order, dict):
                 order_lines = order.get("orderLines", [])
                 total_amount = sum(
@@ -102,37 +95,21 @@ if 'orders' in st.session_state:
                     for line in order_lines if isinstance(line, dict)
                     for charge in line.get("charges", []) if isinstance(charge, dict)
                 )
-                processed_orders.append({
-                    "purchaseOrderId": order.get("purchaseOrderId", "N/A"),
-                    "orderDate": order.get("orderDate", "N/A"),
-                    "totalAmount": total_amount
+                processed_order.append({
+                    "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
+                    "Order Date": order.get("orderDate", "N/A"),
+                    "Total Amount ($)": total_amount
                 })
         
-        df = pd.DataFrame(processed_orders)
+        df = pd.DataFrame(processed_order)
         
         # Convert orderDate to datetime
-        if "orderDate" in df.columns:
-            df["orderDate"] = pd.to_datetime(df["orderDate"], errors='coerce')
+        if "Order Date" in df.columns:
+            df["Order Date"] = pd.to_datetime(df["Order Date"], errors='coerce')
         
         # Display Data
-        st.subheader("Sales Overview")
+        st.subheader("Latest Order Details")
         if not df.empty:
-            total_sales = df["totalAmount"].sum()
-            total_orders = len(df)
-            st.metric("Total Sales", f"${total_sales:,.2f}")
-            st.metric("Total Orders", total_orders)
+            st.dataframe(df.style.set_properties(**{'text-align': 'center'}))
         else:
-            st.warning("No valid order data found.")
-        
-        # Sales Over Time
-        if "orderDate" in df.columns and not df.empty:
-            df['date'] = df['orderDate'].dt.date
-            sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
-            st.line_chart(sales_summary.set_index('date'))
-        
-        # Formatted Data Table
-        st.subheader("Order Details")
-        if not df.empty:
-            st.dataframe(df)
-        else:
-            st.warning("No orders found.")
+            st.warning("No latest order found.")
