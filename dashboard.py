@@ -92,7 +92,18 @@ def fetch_latest_order(token):
 # Streamlit Dashboard Setup
 st.title("Walmart DSV Dashboard")
 
-# Add custom CSS to make the table larger and reduce margins/padding
+# Create DataFrame first (but don't display it yet)
+df = pd.DataFrame(processed_order)
+if not df.empty:
+    # Order Summary right after title
+    col1, col2 = st.columns(2)
+    with col1:
+        total_amount = (df["Quantity"] * df["Unit Price ($)"]).sum()
+        st.metric("Total Order Amount", f"${total_amount:.2f}")
+    with col2:
+        st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
+
+# Add custom CSS
 st.markdown("""
     <style>
         .main .block-container {
@@ -240,14 +251,5 @@ if not df.empty:
             )
         }
     )
-
-    # Display order summary
-    st.header("Order Summary")
-    col1, col2 = st.columns(2)
-    with col1:
-        total_amount = (df["Quantity"] * df["Unit Price ($)"]).sum()
-        st.metric("Total Order Amount", f"${total_amount:.2f}")
-    with col2:
-        st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
 else:
     st.warning("No orders found.")
