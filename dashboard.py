@@ -19,7 +19,7 @@ CLIENT_ID = "f657e76c-6e19-4459-8fda-ecf3ee17db44"
 CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc"
 TOKEN_URL = "https://marketplace.walmartapis.com/v3/token"
 ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
-DEFAULT_SHIP_NODE = "399311"
+DEFAULT_SHIP_NODE = "39931104"
 
 # Function to get Walmart API token
 def get_walmart_token():
