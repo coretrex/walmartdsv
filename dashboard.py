@@ -152,32 +152,47 @@ if 'latest_order' in st.session_state:
                             "Item Name": item.get("productName", "N/A"),
                             "Quantity": quantity,
                             "Unit Price ($)": amount / quantity if quantity > 0 else 0,
-                            "Total Line Amount ($)": amount,
                             "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
-                            "Order Date": order.get("orderDate", "N/A"),
-                            "Status": order.get("orderStatus", "N/A")
+                            "Order Date": order.get("orderDate", "N/A")
                         })
         
         df = pd.DataFrame(processed_order)
         
-        # Convert orderDate to datetime and format it
+        # Convert orderDate to datetime
         if "Order Date" in df.columns:
-            df["Order Date"] = pd.to_datetime(df["Order Date"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+            df["Order Date"] = pd.to_datetime(df["Order Date"])
         
         # Format numeric columns
         if "Unit Price ($)" in df.columns:
             df["Unit Price ($)"] = df["Unit Price ($)"].round(2)
-        if "Total Line Amount ($)" in df.columns:
-            df["Total Line Amount ($)"] = df["Total Line Amount ($)"].round(2)
         
-        # Add SKU filter in sidebar
+        # Add filters in sidebar
         st.sidebar.header("Filters")
+        
+        # SKU filter
         all_skus = ["All"] + sorted(df["SKU"].unique().tolist())
         selected_sku = st.sidebar.selectbox("Filter by SKU", all_skus)
         
-        # Apply SKU filter
+        # Date filter
+        min_date = df["Order Date"].min().date()
+        max_date = df["Order Date"].max().date()
+        selected_date_range = st.sidebar.date_input(
+            "Select Date Range",
+            value=(min_date, max_date),
+            min_value=min_date,
+            max_value=max_date
+        )
+        
+        # Apply filters
         if selected_sku != "All":
             df = df[df["SKU"] == selected_sku]
+            
+        if len(selected_date_range) == 2:
+            start_date, end_date = selected_date_range
+            df = df[
+                (df["Order Date"].dt.date >= start_date) & 
+                (df["Order Date"].dt.date <= end_date)
+            ]
         
         # Display Data
         st.header("Order Details")
@@ -205,11 +220,6 @@ if 'latest_order' in st.session_state:
                         width="small",
                         format="$%.2f"
                     ),
-                    "Total Line Amount ($)": st.column_config.NumberColumn(
-                        "Total Line Amount ($)",
-                        width="medium",
-                        format="$%.2f"
-                    ),
                     "Purchase Order ID": st.column_config.TextColumn(
                         "Purchase Order ID",
                         width="medium",
@@ -219,22 +229,17 @@ if 'latest_order' in st.session_state:
                         "Order Date",
                         width="medium",
                         format="MM/DD/YYYY HH:mm"
-                    ),
-                    "Status": st.column_config.TextColumn(
-                        "Status",
-                        width="small"
                     )
                 }
             )
             
             # Display order summary in metrics
             st.header("Order Summary")
-            col1, col2, col3 = st.columns(3)
+            col1, col2 = st.columns(2)
             with col1:
-                st.metric("Total Order Amount", f"${df['Total Line Amount ($)'].sum():.2f}")
+                total_amount = (df["Quantity"] * df["Unit Price ($)"]).sum()
+                st.metric("Total Order Amount", f"${total_amount:.2f}")
             with col2:
                 st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
-            with col3:
-                st.metric("Number of Orders", f"{df['Purchase Order ID'].nunique()}")
         else:
             st.warning("No orders found for the selected criteria.")
