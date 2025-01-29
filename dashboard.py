@@ -125,17 +125,21 @@ if 'latest_order' in st.session_state:
                         item = line.get("item", {})
                         charges = line.get("charges", [])
                         total_line_amount = sum(
-                            charge.get("chargeAmount", {}).get("amount", 0)
+                            float(charge.get("chargeAmount", {}).get("amount", 0))
                             for charge in charges if isinstance(charge, dict)
                         )
+                        
+                        # Convert quantity to float and ensure it's not zero
+                        quantity = float(line.get("orderLineQuantity", {}).get("amount", 1))
+                        quantity = quantity if quantity > 0 else 1
                         
                         processed_order.append({
                             "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
                             "Order Date": order.get("orderDate", "N/A"),
                             "Item Name": item.get("productName", "N/A"),
                             "SKU": item.get("sku", "N/A"),
-                            "Quantity": line.get("orderLineQuantity", {}).get("amount", 0),
-                            "Unit Price ($)": total_line_amount / line.get("orderLineQuantity", {}).get("amount", 1),
+                            "Quantity": quantity,
+                            "Unit Price ($)": total_line_amount / quantity,
                             "Total Line Amount ($)": total_line_amount,
                             "Status": order.get("orderStatus", "N/A")
                         })
