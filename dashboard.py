@@ -134,22 +134,16 @@ if 'latest_order' in st.session_state:
                 for line in order_lines:
                     if isinstance(line, dict):
                         item = line.get("item", {})
-                        
-                        # Debug the charges structure
                         charges = line.get("charges", [])
-                        amount = 0
                         
-                        try:
-                            amount = float(line.get("amount", 0))
-                        except (ValueError, TypeError):
-                            if isinstance(charges, list) and charges:
-                                try:
-                                    first_charge = charges[0]
-                                    if isinstance(first_charge, dict):
-                                        charge_amount = first_charge.get("chargeAmount", {})
-                                        amount = float(charge_amount.get("amount", 0))
-                                except (IndexError, ValueError, TypeError):
-                                    amount = 0
+                        # Calculate unit price from item charges
+                        unit_price = 0
+                        for charge in charges:
+                            if isinstance(charge, dict) and charge.get("chargeType") == "PRODUCT":
+                                charge_amount = charge.get("chargeAmount", {})
+                                if isinstance(charge_amount, dict):
+                                    unit_price = float(charge_amount.get("amount", 0))
+                                    break
                         
                         quantity = float(line.get("orderLineQuantity", {}).get("amount", 1))
                         quantity = quantity if quantity > 0 else 1
@@ -158,7 +152,7 @@ if 'latest_order' in st.session_state:
                             "SKU": item.get("sku", "N/A"),
                             "Item Name": item.get("productName", "N/A"),
                             "Quantity": quantity,
-                            "Unit Price ($)": amount / quantity if quantity > 0 else 0,
+                            "Unit Price ($)": unit_price,
                             "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
                             "Order Date": datetime.datetime.fromtimestamp(
                                 int(str(order.get("orderDate", 0))[:10])
