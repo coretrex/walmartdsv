@@ -63,7 +63,7 @@ def fetch_latest_order(token):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 10,
+        "limit": 10,  # Increased to ensure we get enough orders
         "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%dT00:00:00.000Z')
     }
     try:
@@ -87,14 +87,15 @@ def fetch_latest_order(token):
         
         st.info(f"Found {len(order_list)} orders")
         
-        # Sort by orderDate and ensure latest order is used
+        # Sort by orderDate in descending order and take the last 5 orders
         order_list = [o for o in order_list if isinstance(o, dict)]
         if not order_list:
             st.warning("No valid orders found in the response")
             return []
         
-        latest_order = max(order_list, key=lambda x: x.get("orderDate", ""))
-        return [latest_order]
+        # Sort by orderDate in descending order and take the first 5
+        sorted_orders = sorted(order_list, key=lambda x: x.get("orderDate", ""), reverse=True)[:5]
+        return sorted_orders  # Return the 5 most recent orders
     except requests.RequestException as e:
         st.error(f"Failed to fetch latest order from Walmart API: {str(e)} - Response: {response.text}")
         return []
