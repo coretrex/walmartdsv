@@ -52,7 +52,7 @@ def fetch_latest_order(token):
         st.error("Error: No valid token provided for fetching orders.")
         return []
     
-    st.info("Attempting to fetch orders...")  # Debug log
+    st.info("Attempting to fetch orders...")
     
     headers = {
         "Authorization": f"Bearer {token}",
@@ -63,8 +63,8 @@ def fetch_latest_order(token):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 5,  # Retrieve last 5 orders to sort and get latest
-        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=3)).strftime('%Y-%m-%dT00:00:00.000Z')
+        "limit": 10,  # Increased limit
+        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%dT00:00:00.000Z')  # Look back 30 days
     }
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
@@ -73,18 +73,23 @@ def fetch_latest_order(token):
         
         # Debug logs
         st.info(f"API Response Status Code: {response.status_code}")
+        
+        # Display the raw response structure for debugging
+        st.info("API Response Structure:")
+        st.json(orders)
+        
         if not orders:
             st.warning("Received empty response from API")
             return []
             
-        order_list = orders.get("orders", {}).get("elements", [])
+        order_list = orders.get("list", {}).get("elements", [])  # Changed path to match API structure
+        if not order_list:
+            order_list = orders.get("orders", {}).get("elements", [])  # Try alternate path
         
         if not isinstance(order_list, list):
             st.error("Unexpected API response format. Expected a list of orders.")
-            st.write("Response structure:", orders)  # Show structure for debugging
             return []
         
-        # Debug log
         st.info(f"Found {len(order_list)} orders")
         
         # Sort by orderDate and ensure latest order is used
@@ -94,7 +99,7 @@ def fetch_latest_order(token):
             return []
         
         latest_order = max(order_list, key=lambda x: x.get("orderDate", ""))
-        return [latest_order]  # Return the latest order as a list
+        return [latest_order]
     except requests.RequestException as e:
         st.error(f"Failed to fetch latest order from Walmart API: {str(e)} - Response: {response.text}")
         return []
