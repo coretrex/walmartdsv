@@ -92,13 +92,13 @@ def fetch_latest_order(token):
 # Streamlit Dashboard Setup
 st.title("Walmart DSV Dashboard")
 
-# Add custom CSS to make the table larger and reduce margins
+# Add custom CSS to make the table larger and reduce margins/padding
 st.markdown("""
     <style>
         .main .block-container {
-            padding-left: 2rem;
-            padding-right: 2rem;
-            max-width: 95%;
+            padding-left: 1rem;
+            padding-right: 1rem;
+            max-width: 98%;
         }
         .stDataFrame {
             width: 100%;
@@ -106,6 +106,19 @@ st.markdown("""
         .stDataFrame [data-testid="stDataFrameResizable"] {
             min-height: 450px;
             width: 100%;
+        }
+        section[data-testid="stSidebar"] {
+            width: 200px !important;
+        }
+        /* Reduce padding of the main content area */
+        .css-1d391kg {
+            padding-left: 1rem;
+            padding-right: 1rem;
+        }
+        /* Make sure content uses maximum width */
+        .css-1v0mbdj {
+            width: 100%;
+            max-width: 100%;
         }
     </style>
 """, unsafe_allow_html=True)
