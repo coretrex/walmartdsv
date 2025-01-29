@@ -61,8 +61,8 @@ def fetch_latest_order(token):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 10,
-        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=30)).strftime('%Y-%m-%dT00:00:00.000Z')
+        "limit": 50,  # Increased limit to ensure we get all orders from last 3 days
+        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=3)).strftime('%Y-%m-%dT00:00:00.000Z')
     }
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
@@ -81,8 +81,8 @@ def fetch_latest_order(token):
         if not order_list:
             return []
         
-        # Sort by orderDate in descending order and take the first 5
-        sorted_orders = sorted(order_list, key=lambda x: x.get("orderDate", ""), reverse=True)[:5]
+        # Sort by orderDate in descending order
+        sorted_orders = sorted(order_list, key=lambda x: x.get("orderDate", ""), reverse=True)
         return sorted_orders
 
     except requests.RequestException as e:
