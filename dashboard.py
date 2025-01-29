@@ -14,6 +14,14 @@ except ModuleNotFoundError as e:
     st.error(f"Missing module: {e.name}. Please install the required dependencies.")
     raise
 
+# Set page config to wide mode
+st.set_page_config(
+    page_title="Walmart DSV Dashboard",
+    page_icon="🛍️",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
 # Walmart DSV API Credentials
 CLIENT_ID = "f657e76c-6e19-4459-8fda-ecf3ee17db44"
 CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc"
