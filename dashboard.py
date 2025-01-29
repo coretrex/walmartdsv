@@ -31,8 +31,9 @@ def get_walmart_token():
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
         "WM_SVC.NAME": "Walmart Marketplace"
     }
+    data = "grant_type=client_credentials"  # Fix: Ensure grant_type is included as a string
     try:
-        response = requests.post(TOKEN_URL, headers=headers)
+        response = requests.post(TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
         token_data = response.json()
         access_token = token_data.get("access_token")
