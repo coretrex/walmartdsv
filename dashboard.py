@@ -51,6 +51,9 @@ def fetch_latest_order(token):
     if not token:
         st.error("Error: No valid token provided for fetching orders.")
         return []
+    
+    st.info("Attempting to fetch orders...")  # Debug log
+    
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
@@ -67,15 +70,27 @@ def fetch_latest_order(token):
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
+        
+        # Debug logs
+        st.info(f"API Response Status Code: {response.status_code}")
+        if not orders:
+            st.warning("Received empty response from API")
+            return []
+            
         order_list = orders.get("orders", {}).get("elements", [])
         
         if not isinstance(order_list, list):
             st.error("Unexpected API response format. Expected a list of orders.")
+            st.write("Response structure:", orders)  # Show structure for debugging
             return []
+        
+        # Debug log
+        st.info(f"Found {len(order_list)} orders")
         
         # Sort by orderDate and ensure latest order is used
         order_list = [o for o in order_list if isinstance(o, dict)]
         if not order_list:
+            st.warning("No valid orders found in the response")
             return []
         
         latest_order = max(order_list, key=lambda x: x.get("orderDate", ""))
