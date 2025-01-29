@@ -148,13 +148,13 @@ if 'latest_order' in st.session_state:
                         quantity = quantity if quantity > 0 else 1
                         
                         processed_order.append({
-                            "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
-                            "Order Date": order.get("orderDate", "N/A"),
-                            "Item Name": item.get("productName", "N/A"),
                             "SKU": item.get("sku", "N/A"),
+                            "Item Name": item.get("productName", "N/A"),
                             "Quantity": quantity,
                             "Unit Price ($)": amount / quantity if quantity > 0 else 0,
                             "Total Line Amount ($)": amount,
+                            "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
+                            "Order Date": order.get("orderDate", "N/A"),
                             "Status": order.get("orderStatus", "N/A")
                         })
         
@@ -187,23 +187,13 @@ if 'latest_order' in st.session_state:
                 df,
                 hide_index=True,
                 column_config={
-                    "Purchase Order ID": st.column_config.TextColumn(
-                        "Purchase Order ID",
-                        width="medium",
-                        help="Walmart Purchase Order ID"
-                    ),
-                    "Order Date": st.column_config.DatetimeColumn(
-                        "Order Date",
-                        width="medium",
-                        format="MM/DD/YYYY HH:mm"
+                    "SKU": st.column_config.TextColumn(
+                        "SKU",
+                        width="small"
                     ),
                     "Item Name": st.column_config.TextColumn(
                         "Item Name",
                         width="large"
-                    ),
-                    "SKU": st.column_config.TextColumn(
-                        "SKU",
-                        width="small"
                     ),
                     "Quantity": st.column_config.NumberColumn(
                         "Quantity",
@@ -219,6 +209,16 @@ if 'latest_order' in st.session_state:
                         "Total Line Amount ($)",
                         width="medium",
                         format="$%.2f"
+                    ),
+                    "Purchase Order ID": st.column_config.TextColumn(
+                        "Purchase Order ID",
+                        width="medium",
+                        help="Walmart Purchase Order ID"
+                    ),
+                    "Order Date": st.column_config.DatetimeColumn(
+                        "Order Date",
+                        width="medium",
+                        format="MM/DD/YYYY HH:mm"
                     ),
                     "Status": st.column_config.TextColumn(
                         "Status",
