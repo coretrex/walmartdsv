@@ -249,5 +249,54 @@ if not df.empty:
         st.metric("Total Order Amount", f"${total_amount:.2f}")
     with col2:
         st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
+
+    # After the existing summary metrics, add visualization section
+    st.header("Sales Visualization")
+
+    # Create daily sales summary
+    daily_sales = df.copy()
+    daily_sales['Total Amount'] = daily_sales['Quantity'] * daily_sales['Unit Price ($)']
+    daily_sales['Date'] = daily_sales['Order Date'].dt.date
+    daily_summary = daily_sales.groupby('Date').agg({
+        'Total Amount': 'sum',
+        'Quantity': 'sum'
+    }).reset_index()
+
+    # Create two columns for the charts
+    viz_col1, viz_col2 = st.columns(2)
+
+    with viz_col1:
+        # Daily Sales Amount Chart
+        import plotly.express as px
+        
+        fig_sales = px.line(daily_summary, 
+            x='Date', 
+            y='Total Amount',
+            title='Daily Sales Amount',
+            markers=True
+        )
+        fig_sales.update_traces(line_color='#2986cc')
+        fig_sales.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Sales Amount ($)",
+            hovermode='x unified'
+        )
+        st.plotly_chart(fig_sales, use_container_width=True)
+
+    with viz_col2:
+        # Daily Order Quantity Chart
+        fig_quantity = px.line(daily_summary, 
+            x='Date', 
+            y='Quantity',
+            title='Daily Order Quantity',
+            markers=True
+        )
+        fig_quantity.update_traces(line_color='#73a9d8')
+        fig_quantity.update_layout(
+            xaxis_title="Date",
+            yaxis_title="Number of Items",
+            hovermode='x unified'
+        )
+        st.plotly_chart(fig_quantity, use_container_width=True)
 else:
     st.warning("No orders found.")
