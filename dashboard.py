@@ -70,9 +70,7 @@ def fetch_orders(token):
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
-        if not orders.get("elements"):
-            st.warning("No orders found. API Response:")
-            st.json(orders)
+        st.json(orders)  # Show full API response for debugging
         return orders.get("elements", [])
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
@@ -94,27 +92,30 @@ if 'orders' in st.session_state:
     orders = st.session_state['orders']
     if orders:
         df = pd.DataFrame(orders)
-        if "orderDate" in df.columns:
-            df["orderDate"] = pd.to_datetime(df["orderDate"], errors='coerce')
-        
-        if "orderLines" in df.columns:
-            df["totalAmount"] = df["orderLines"].apply(lambda x: sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in x) if isinstance(x, list) else 0)
-        
-        # Display Data
-        st.subheader("Sales Overview")
-        total_sales = df["totalAmount"].sum()
-        total_orders = len(df)
-        st.metric("Total Sales", f"${total_sales:,.2f}")
-        st.metric("Total Orders", total_orders)
-        
-        # Sales Over Time
-        if "orderDate" in df.columns:
-            df['date'] = df['orderDate'].dt.date
-            sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
-            st.line_chart(sales_summary.set_index('date'))
-        
-        # Raw Data Table
-        st.subheader("Order Details")
-        st.dataframe(df[["orderDate", "totalAmount"]])
+        if "purchaseOrderId" not in df.columns:
+            st.error("Expected 'purchaseOrderId' column not found in API response.")
+        else:
+            if "orderDate" in df.columns:
+                df["orderDate"] = pd.to_datetime(df["orderDate"], errors='coerce')
+            
+            if "orderLines" in df.columns:
+                df["totalAmount"] = df["orderLines"].apply(lambda x: sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in x) if isinstance(x, list) else 0)
+            
+            # Display Data
+            st.subheader("Sales Overview")
+            total_sales = df["totalAmount"].sum()
+            total_orders = len(df)
+            st.metric("Total Sales", f"${total_sales:,.2f}")
+            st.metric("Total Orders", total_orders)
+            
+            # Sales Over Time
+            if "orderDate" in df.columns:
+                df['date'] = df['orderDate'].dt.date
+                sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
+                st.line_chart(sales_summary.set_index('date'))
+            
+            # Raw Data Table
+            st.subheader("Order Details")
+            st.dataframe(df[["purchaseOrderId", "orderDate", "totalAmount"]])
     else:
         st.warning("No orders found.")
