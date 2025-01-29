@@ -27,7 +27,8 @@ def get_walmart_token():
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {encoded_credentials}"
+        "Authorization": f"Basic {encoded_credentials}",
+        "WM_QOS.CORRELATION_ID": str(uuid.uuid4())
     }
     data = {"grant_type": "client_credentials"}
     try:
