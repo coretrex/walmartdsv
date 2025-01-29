@@ -67,8 +67,6 @@ def fetch_latest_order(token):
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
-        st.subheader("API Response")
-        st.json(orders)  # Show raw API response for debugging
         order_list = orders.get("orders", {}).get("elements", [])
         
         if not isinstance(order_list, list):
