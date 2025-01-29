@@ -27,22 +27,27 @@ def get_walmart_token():
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {encoded_credentials}",
-        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
-        "WM_SVC.NAME": "Walmart Marketplace"
+        "Authorization": f"Basic {encoded_credentials}"
     }
     data = {"grant_type": "client_credentials"}
     try:
         response = requests.post(TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
         token_data = response.json()
-        return token_data.get("access_token")
+        access_token = token_data.get("access_token")
+        if not access_token:
+            st.error(f"Error: No access token received. Full response: {token_data}")
+            return None
+        return access_token
     except requests.RequestException as e:
         st.error(f"Failed to get Walmart API token: {str(e)} - Response: {response.text}")
         return None
 
 # Function to fetch orders from Walmart API
 def fetch_orders(token):
+    if not token:
+        st.error("Error: No valid token provided for fetching orders.")
+        return []
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
