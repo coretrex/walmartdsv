@@ -31,7 +31,7 @@ def get_walmart_token():
         "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
         "WM_SVC.NAME": "Walmart Marketplace"
     }
-    data = "grant_type=client_credentials"  # Fix: Ensure grant_type is included as a string
+    data = {"grant_type": "client_credentials"}
     try:
         response = requests.post(TOKEN_URL, headers=headers, data=data)
         response.raise_for_status()
@@ -60,7 +60,7 @@ def fetch_orders(token):
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
-        return response.json().get("list", [])  # Walmart API returns 'list' instead of 'orders'
+        return response.json().get("elements", [])  # Corrected response parsing based on Walmart API
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
         return []
