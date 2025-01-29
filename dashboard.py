@@ -90,34 +90,35 @@ if refresh or 'orders' not in st.session_state:
 if 'orders' in st.session_state:
     orders = st.session_state['orders']
     if orders:
-        df = pd.DataFrame(orders)
-        if "purchaseOrderId" not in df.columns:
-            st.error("Expected 'purchaseOrderId' column not found in API response.")
-        else:
-            if "orderDate" in df.columns:
-                df["orderDate"] = pd.to_datetime(df["orderDate"], errors='coerce')
-            
-            if "orderLines" in df.columns:
-                df["totalAmount"] = df["orderLines"].apply(lambda x: sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in x) if isinstance(x, list) else 0)
-            
-            # Display Data
-            st.subheader("Sales Overview")
-            total_sales = df["totalAmount"].sum()
-            total_orders = len(df)
-            st.metric("Total Sales", f"${total_sales:,.2f}")
-            st.metric("Total Orders", total_orders)
-            
-            # Sales Over Time
-            if "orderDate" in df.columns:
-                df['date'] = df['orderDate'].dt.date
-                sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
-                st.line_chart(sales_summary.set_index('date'))
-            
-            # Formatted Data Table
-            st.subheader("Order Details")
-            st.dataframe(df[["purchaseOrderId", "orderDate", "totalAmount"]].style.set_table_attributes('class="dataframe"').set_table_styles(
-                [{'selector': 'th', 'props': [('font-size', '14px'), ('text-align', 'center')]},
-                 {'selector': 'td', 'props': [('font-size', '12px'), ('text-align', 'center')]}]
-            ))
+        # Extract purchaseOrderId if nested
+        processed_orders = []
+        for order in orders:
+            processed_orders.append({
+                "purchaseOrderId": order.get("purchaseOrderId", "N/A"),
+                "orderDate": order.get("orderDate", "N/A"),
+                "totalAmount": sum(line.get("charges", [{}])[0].get("chargeAmount", 0) for line in order.get("orderLines", []))
+            })
+        df = pd.DataFrame(processed_orders)
+        
+        # Convert orderDate to datetime
+        if "orderDate" in df.columns:
+            df["orderDate"] = pd.to_datetime(df["orderDate"], errors='coerce')
+        
+        # Display Data
+        st.subheader("Sales Overview")
+        total_sales = df["totalAmount"].sum()
+        total_orders = len(df)
+        st.metric("Total Sales", f"${total_sales:,.2f}")
+        st.metric("Total Orders", total_orders)
+        
+        # Sales Over Time
+        if "orderDate" in df.columns:
+            df['date'] = df['orderDate'].dt.date
+            sales_summary = df.groupby('date')["totalAmount"].sum().reset_index()
+            st.line_chart(sales_summary.set_index('date'))
+        
+        # Formatted Data Table
+        st.subheader("Order Details")
+        st.dataframe(df)
     else:
         st.warning("No orders found.")
