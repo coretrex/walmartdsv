@@ -4,19 +4,15 @@ import streamlit as st
 import datetime
 import uuid
 import base64
+from dotenv import load_dotenv
+import os
 
-# Ensure required modules are installed
-try:
-    import requests
-    import pandas as pd
-    import streamlit as st
-except ModuleNotFoundError as e:
-    st.error(f"Missing module: {e.name}. Please install the required dependencies.")
-    raise
+# Load environment variables
+load_dotenv()
 
 # Walmart DSV API Credentials
-CLIENT_ID = "f657e76c-6e19-4459-8fda-ecf3ee17db44"
-CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc"
+CLIENT_ID = os.getenv("WALMART_CLIENT_ID")
+CLIENT_SECRET = os.getenv("WALMART_CLIENT_SECRET")
 TOKEN_URL = "https://marketplace.walmartapis.com/v3/token"
 ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
 DEFAULT_SHIP_NODE = "39931104"
@@ -163,91 +159,75 @@ if 'latest_order' in st.session_state:
                                 int(str(order.get("orderDate", 0))[:10])
                             ).strftime('%Y-%m-%d %H:%M:%S')
                         })
-
-# Create DataFrame
-df = pd.DataFrame(processed_order)
-if not df.empty:
-    # Convert orderDate to datetime
-    if "Order Date" in df.columns:
-        df["Order Date"] = pd.to_datetime(df["Order Date"])
-
-    # Sidebar Filters
-    with st.sidebar:
-        st.header("Filters")
-        st.write("")
         
-        # SKU Filter
-        all_skus = ["All"] + sorted(df["SKU"].unique().tolist())
-        selected_sku = st.selectbox("Filter by SKU", all_skus)
+        df = pd.DataFrame(processed_order)
         
-        # Date Filter
-        st.write("")
-        st.write("Select Date Range")
-        min_date = df["Order Date"].min().date()
-        max_date = df["Order Date"].max().date()
-        selected_date_range = st.date_input(
-            "",
-            value=(min_date, max_date),
-            min_value=min_date,
-            max_value=max_date
-        )
-
-    # Apply filters
-    if selected_sku != "All":
-        df = df[df["SKU"] == selected_sku]
+        # Convert orderDate to datetime
+        if "Order Date" in df.columns:
+            df["Order Date"] = pd.to_datetime(df["Order Date"])
         
-    if len(selected_date_range) == 2:
-        start_date, end_date = selected_date_range
-        df = df[
-            (df["Order Date"].dt.date >= start_date) & 
-            (df["Order Date"].dt.date <= end_date)
-        ]
-
-    # Display Data
-    st.dataframe(
-        df,
-        hide_index=True,
-        height=450,
-        use_container_width=True,
-        column_config={
-            "SKU": st.column_config.TextColumn(
-                "SKU",
-                width=150
-            ),
-            "Item Name": st.column_config.TextColumn(
-                "Item Name",
-                width="large"
-            ),
-            "Quantity": st.column_config.NumberColumn(
-                "Quantity",
-                width="small",
-                format="%d"
-            ),
-            "Unit Price ($)": st.column_config.NumberColumn(
-                "Unit Price ($)",
-                width="small",
-                format="$%.2f"
-            ),
-            "Purchase Order ID": st.column_config.TextColumn(
-                "Purchase Order ID",
-                width="medium",
-                help="Walmart Purchase Order ID"
-            ),
-            "Order Date": st.column_config.DatetimeColumn(
-                "Order Date",
-                width="medium",
-                format="MM/DD/YYYY HH:mm"
+        # Format numeric columns
+        if "Unit Price ($)" in df.columns:
+            df["Unit Price ($)"] = df["Unit Price ($)"].round(2)
+        
+        # Apply filters
+        if selected_sku != "All":
+            df = df[df["SKU"] == selected_sku]
+            
+        if len(selected_date_range) == 2:
+            start_date, end_date = selected_date_range
+            df = df[
+                (df["Order Date"].dt.date >= start_date) & 
+                (df["Order Date"].dt.date <= end_date)
+            ]
+        
+        # Display Data
+        if not df.empty:
+            # Style the dataframe
+            st.dataframe(
+                df,
+                hide_index=True,
+                height=450,
+                use_container_width=True,
+                column_config={
+                    "SKU": st.column_config.TextColumn(
+                        "SKU",
+                        width=120  # Increased width for SKU column
+                    ),
+                    "Item Name": st.column_config.TextColumn(
+                        "Item Name",
+                        width="large"
+                    ),
+                    "Quantity": st.column_config.NumberColumn(
+                        "Quantity",
+                        width="small",
+                        format="%d"
+                    ),
+                    "Unit Price ($)": st.column_config.NumberColumn(
+                        "Unit Price ($)",
+                        width="small",
+                        format="$%.2f"
+                    ),
+                    "Purchase Order ID": st.column_config.TextColumn(
+                        "Purchase Order ID",
+                        width="medium",
+                        help="Walmart Purchase Order ID"
+                    ),
+                    "Order Date": st.column_config.DatetimeColumn(
+                        "Order Date",
+                        width="medium",
+                        format="MM/DD/YYYY HH:mm"
+                    )
+                }
             )
-        }
-    )
-
-    # Display order summary
-    st.header("Order Summary")
-    col1, col2 = st.columns(2)
-    with col1:
-        total_amount = (df["Quantity"] * df["Unit Price ($)"]).sum()
-        st.metric("Total Order Amount", f"${total_amount:.2f}")
-    with col2:
-        st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
-else:
-    st.warning("No orders found.")
+            
+            # Display order summary in metrics
+            st.header("Order Summary")
+            col1, col2 = st.columns(2)
+            with col1:
+                total_amount = (df["Quantity"] * df["Unit Price ($)"]).sum()
+                st.metric("Total Order Amount", f"${total_amount:.2f}")
+            with col2:
+                st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
+        else:
+            st.warning("No orders found for the selected criteria.")
