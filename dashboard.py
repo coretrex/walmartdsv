@@ -28,7 +28,9 @@ def get_walmart_token():
     headers = {
         "Accept": "application/json",
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": f"Basic {encoded_credentials}"
+        "Authorization": f"Basic {encoded_credentials}",
+        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),  # Ensure unique correlation ID
+        "WM_SVC.NAME": "Walmart Marketplace"
     }
     data = {"grant_type": "client_credentials"}
     try:
@@ -52,7 +54,7 @@ def fetch_orders(token):
     headers = {
         "Authorization": f"Bearer {token}",
         "Accept": "application/json",
-        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
+        "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),  # Ensure unique correlation ID
         "WM_SVC.NAME": "Walmart Marketplace"
     }
     ship_node = st.sidebar.text_input("Enter Ship Node", DEFAULT_SHIP_NODE)
