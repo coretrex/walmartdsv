@@ -221,7 +221,7 @@ if 'latest_order' in st.session_state:
                 column_config={
                     "SKU": st.column_config.TextColumn(
                         "SKU",
-                        width=150  # Increased width for SKU column
+                        width=120  # Increased width for SKU column
                     ),
                     "Item Name": st.column_config.TextColumn(
                         "Item Name",
