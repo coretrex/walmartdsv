@@ -212,16 +212,16 @@ if 'latest_order' in st.session_state:
         
         # Display Data
         if not df.empty:
-            # Style the dataframe with increased height
+            # Style the dataframe
             st.dataframe(
                 df,
                 hide_index=True,
-                height=450,  # Explicitly set height
-                use_container_width=True,  # Use full width of container
+                height=450,
+                use_container_width=True,
                 column_config={
                     "SKU": st.column_config.TextColumn(
                         "SKU",
-                        width="small"
+                        width=150  # Increased width for SKU column
                     ),
                     "Item Name": st.column_config.TextColumn(
                         "Item Name",
