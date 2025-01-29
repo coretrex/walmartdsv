@@ -153,7 +153,9 @@ if 'latest_order' in st.session_state:
                             "Quantity": quantity,
                             "Unit Price ($)": amount / quantity if quantity > 0 else 0,
                             "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
-                            "Order Date": order.get("orderDate", "N/A")
+                            "Order Date": datetime.datetime.fromtimestamp(
+                                int(str(order.get("orderDate", 0))[:10])
+                            ).strftime('%Y-%m-%d %H:%M:%S')
                         })
         
         df = pd.DataFrame(processed_order)
