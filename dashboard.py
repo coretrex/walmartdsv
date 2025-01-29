@@ -104,27 +104,68 @@ if 'latest_order' in st.session_state:
         processed_order = []
         for order in latest_order:
             if isinstance(order, dict):
-                order_lines = order.get("orderLines", [])
-                total_amount = sum(
-                    charge.get("chargeAmount", {}).get("amount", 0)
-                    for line in order_lines if isinstance(line, dict)
-                    for charge in line.get("charges", []) if isinstance(charge, dict)
-                )
-                processed_order.append({
-                    "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
-                    "Order Date": order.get("orderDate", "N/A"),
-                    "Total Amount ($)": total_amount
-                })
+                order_lines = order.get("orderLines", {}).get("orderLine", [])
+                
+                # Process each order line
+                for line in order_lines:
+                    if isinstance(line, dict):
+                        item = line.get("item", {})
+                        charges = line.get("charges", [])
+                        total_line_amount = sum(
+                            charge.get("chargeAmount", {}).get("amount", 0)
+                            for charge in charges if isinstance(charge, dict)
+                        )
+                        
+                        processed_order.append({
+                            "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
+                            "Order Date": order.get("orderDate", "N/A"),
+                            "Item Name": item.get("productName", "N/A"),
+                            "SKU": item.get("sku", "N/A"),
+                            "Quantity": line.get("orderLineQuantity", {}).get("amount", 0),
+                            "Unit Price ($)": total_line_amount / line.get("orderLineQuantity", {}).get("amount", 1),
+                            "Total Line Amount ($)": total_line_amount,
+                            "Status": order.get("orderStatus", "N/A")
+                        })
         
         df = pd.DataFrame(processed_order)
         
-        # Convert orderDate to datetime
+        # Convert orderDate to datetime and format it
         if "Order Date" in df.columns:
-            df["Order Date"] = pd.to_datetime(df["Order Date"], errors='coerce')
+            df["Order Date"] = pd.to_datetime(df["Order Date"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Format numeric columns
+        if "Unit Price ($)" in df.columns:
+            df["Unit Price ($)"] = df["Unit Price ($)"].round(2)
+        if "Total Line Amount ($)" in df.columns:
+            df["Total Line Amount ($)"] = df["Total Line Amount ($)"].round(2)
         
         # Display Data
         st.subheader("Latest Order Details")
         if not df.empty:
-            st.dataframe(df.style.set_properties(**{'text-align': 'center'}))
+            st.dataframe(
+                df,
+                hide_index=True,
+                column_config={
+                    "Purchase Order ID": st.column_config.TextColumn("Purchase Order ID", width="medium"),
+                    "Order Date": st.column_config.TextColumn("Order Date", width="medium"),
+                    "Item Name": st.column_config.TextColumn("Item Name", width="large"),
+                    "SKU": st.column_config.TextColumn("SKU", width="small"),
+                    "Quantity": st.column_config.NumberColumn("Quantity", width="small"),
+                    "Unit Price ($)": st.column_config.NumberColumn("Unit Price ($)", format="$%.2f", width="small"),
+                    "Total Line Amount ($)": st.column_config.NumberColumn("Total Line Amount ($)", format="$%.2f", width="medium"),
+                    "Status": st.column_config.TextColumn("Status", width="small")
+                }
+            )
+            
+            # Display order summary
+            st.subheader("Order Summary")
+            total_order_amount = df["Total Line Amount ($)"].sum()
+            total_items = df["Quantity"].sum()
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Total Order Amount", f"${total_order_amount:.2f}")
+            with col2:
+                st.metric("Total Items", f"{total_items}")
         else:
             st.warning("No latest order found.")
