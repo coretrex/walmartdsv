@@ -60,13 +60,23 @@ def fetch_latest_order(token):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 1  # Retrieve only the latest order
+        "limit": 5,  # Retrieve last 5 orders and sort to ensure the latest
+        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=3)).strftime('%Y-%m-%dT00:00:00.000Z')
     }
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
         orders = response.json()
-        return orders.get("list", {}).get("elements", [])
+        st.subheader("API Response")
+        st.json(orders)  # Show raw API response for debugging
+        order_list = orders.get("list", {}).get("elements", [])
+        
+        if not order_list:
+            return []
+        
+        # Sort by orderDate to ensure we get the latest order
+        latest_order = sorted(order_list, key=lambda x: x.get("orderDate", ""), reverse=True)[0]
+        return [latest_order]  # Return the latest order as a list
     except requests.RequestException as e:
         st.error(f"Failed to fetch latest order from Walmart API: {str(e)} - Response: {response.text}")
         return []
