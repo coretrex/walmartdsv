@@ -58,11 +58,22 @@ def fetch_orders(token):
         "WM_SVC.NAME": "Walmart Marketplace",
         "WM_SEC.ACCESS_TOKEN": token  # Ensure token is passed correctly
     }
-    params = {"shipNode": DEFAULT_SHIP_NODE}
+    # Adding date range for querying orders
+    start_date = (datetime.datetime.now() - datetime.timedelta(days=7)).strftime('%Y-%m-%dT00:00:00.000Z')
+    end_date = datetime.datetime.now().strftime('%Y-%m-%dT23:59:59.000Z')
+    params = {
+        "shipNode": DEFAULT_SHIP_NODE,
+        "createdStartDate": start_date,
+        "createdEndDate": end_date
+    }
     try:
         response = requests.get(ORDERS_URL, headers=headers, params=params)
         response.raise_for_status()
-        return response.json().get("elements", [])
+        orders = response.json()
+        if not orders.get("elements"):
+            st.warning("No orders found. API Response:")
+            st.json(orders)  # Display the full response for debugging
+        return orders.get("elements", [])
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)} - Response: {response.text}")
         return []
