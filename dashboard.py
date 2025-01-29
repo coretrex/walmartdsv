@@ -4,15 +4,19 @@ import streamlit as st
 import datetime
 import uuid
 import base64
-from dotenv import load_dotenv
-import os
 
-# Load environment variables
-load_dotenv()
+# Ensure required modules are installed
+try:
+    import requests
+    import pandas as pd
+    import streamlit as st
+except ModuleNotFoundError as e:
+    st.error(f"Missing module: {e.name}. Please install the required dependencies.")
+    raise
 
 # Walmart DSV API Credentials
-CLIENT_ID = os.getenv("WALMART_CLIENT_ID")
-CLIENT_SECRET = os.getenv("WALMART_CLIENT_SECRET")
+CLIENT_ID = "f657e76c-6e19-4459-8fda-ecf3ee17db44"
+CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc"
 TOKEN_URL = "https://marketplace.walmartapis.com/v3/token"
 ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
 DEFAULT_SHIP_NODE = "39931104"
@@ -113,6 +117,29 @@ st.markdown("""
 # Sidebar controls
 with st.sidebar:
     st.header("Settings")
+    
+    # Add SKU filter
+    if 'latest_order' in st.session_state and st.session_state['latest_order']:
+        all_skus = sorted(list(set(
+            item.get("item", {}).get("sku", "N/A") 
+            for order in st.session_state['latest_order'] 
+            for item in order.get("orderLines", {}).get("orderLine", [])
+            if isinstance(item, dict)
+        )))
+        selected_sku = st.selectbox("Filter by SKU", ["All"] + all_skus)
+    else:
+        selected_sku = "All"
+    
+    # Add date range filter
+    today = datetime.date.today()
+    three_days_ago = today - datetime.timedelta(days=3)
+    selected_date_range = st.date_input(
+        "Select Date Range",
+        value=(three_days_ago, today),
+        min_value=three_days_ago,
+        max_value=today
+    )
+    
     refresh = st.button("Refresh Data")
 
 # Get the data
