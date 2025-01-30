@@ -354,7 +354,7 @@ if 'latest_order' in st.session_state:
             col1, col2 = st.columns(2)
             with col1:
                 total_amount = (df["Quantity"] * df["Unit Price ($)"]).sum()
-                st.metric("Total Order Amount", f"${total_amount:.2f}")
+                st.metric("Total Order Amount", f"${total_amount:,.2f}")
             with col2:
                 st.metric("Total Items", f"{df['Quantity'].sum():.0f}")
         else:
