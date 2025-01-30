@@ -4,6 +4,7 @@ import streamlit as st
 import datetime
 import uuid
 import base64
+import sqlite3
 
 # Ensure required modules are installed
 try:
@@ -97,6 +98,50 @@ def fetch_latest_order(token):
         st.error(f"Failed to fetch latest order from Walmart API: {str(e)}")
         return []
 
+# Add these functions after the existing imports and before the page config
+
+def init_database():
+    """Initialize SQLite database and create tables if they don't exist"""
+    conn = sqlite3.connect('walmart_orders.db')
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            purchase_order_id TEXT PRIMARY KEY,
+            sku TEXT,
+            item_name TEXT,
+            quantity REAL,
+            unit_price REAL,
+            order_date TIMESTAMP
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+def save_orders_to_db(processed_orders):
+    """Save orders to SQLite database, skipping duplicates"""
+    conn = sqlite3.connect('walmart_orders.db')
+    c = conn.cursor()
+    
+    for order in processed_orders:
+        try:
+            c.execute('''
+                INSERT OR IGNORE INTO orders 
+                (purchase_order_id, sku, item_name, quantity, unit_price, order_date)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (
+                order['Purchase Order ID'],
+                order['SKU'],
+                order['Item Name'],
+                order['Quantity'],
+                order['Unit Price ($)'],
+                order['Order Date']
+            ))
+        except sqlite3.Error as e:
+            st.error(f"Database error: {e}")
+    
+    conn.commit()
+    conn.close()
+
 # Streamlit Dashboard Setup
 st.title("Walmart DSV Dashboard")
 
@@ -162,6 +207,10 @@ processed_order = []
 if 'latest_order' in st.session_state:
     latest_order = st.session_state['latest_order']
     if latest_order:
+        # Initialize database
+        init_database()
+        
+        # Process orders as before
         for order in latest_order:
             if isinstance(order, dict):
                 order_lines = order.get("orderLines", {}).get("orderLine", [])
@@ -195,7 +244,22 @@ if 'latest_order' in st.session_state:
                             ).strftime('%Y-%m-%d %H:%M:%S')
                         })
         
-        df = pd.DataFrame(processed_order)
+        # After creating processed_order list, save to database
+        save_orders_to_db(processed_order)
+        
+        # Create DataFrame from database instead of processed_order
+        conn = sqlite3.connect('walmart_orders.db')
+        df = pd.read_sql_query('''
+            SELECT 
+                sku as "SKU",
+                item_name as "Item Name",
+                quantity as "Quantity",
+                unit_price as "Unit Price ($)",
+                purchase_order_id as "Purchase Order ID",
+                order_date as "Order Date"
+            FROM orders
+        ''', conn)
+        conn.close()
         
         # Convert orderDate to datetime
         if "Order Date" in df.columns:
