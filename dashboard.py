@@ -55,10 +55,20 @@ def get_walmart_token():
         st.error(f"Failed to get Walmart API token: {str(e)} - Response: {response.text}")
         return None
 
-# Modify the fetch_latest_order function to accept date parameters
+# Function to fetch latest order from Walmart API
 def fetch_latest_order(token, start_date, end_date):
     if not token:
         st.error("Error: No valid token provided for fetching orders.")
+        return []
+    
+    # Validate dates
+    today = datetime.date.today()
+    if start_date > today or end_date > today:
+        st.error("Cannot fetch orders for future dates.")
+        return []
+    
+    if (end_date - start_date).days > 180:  # Optional: Add a reasonable date range limit
+        st.error("Please select a date range of 180 days or less.")
         return []
     
     headers = {
@@ -70,7 +80,7 @@ def fetch_latest_order(token, start_date, end_date):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 100,  # Increased limit
+        "limit": 100,
         "createdStartDate": start_date.strftime('%Y-%m-%dT00:00:00.000Z'),
         "createdEndDate": end_date.strftime('%Y-%m-%dT23:59:59.999Z')
     }
@@ -79,6 +89,8 @@ def fetch_latest_order(token, start_date, end_date):
     try:
         while True:
             response = requests.get(ORDERS_URL, headers=headers, params=params)
+            if response.status_code == 404:
+                break  # No more orders to fetch
             response.raise_for_status()
             orders = response.json()
             
@@ -100,13 +112,13 @@ def fetch_latest_order(token, start_date, end_date):
                 
             # Update params for next page
             params["nextCursor"] = next_cursor
-        
-        # Sort by orderDate in descending order
-        sorted_orders = sorted(all_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
-        return sorted_orders
+
+        return sorted(all_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
 
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)}")
+        if hasattr(e.response, 'text'):
+            st.error(f"API Response: {e.response.text}")
         return []
 
 # Add these functions after the existing imports and before the page config
@@ -194,25 +206,30 @@ with st.sidebar:
     else:
         selected_sku = "All"
     
-    # Modify date range selector to allow broader date selection
+    # Modify date range selector with validation
     today = datetime.date.today()
-    default_start = today - datetime.timedelta(days=7)  # Default to last 7 days
+    default_start = today - datetime.timedelta(days=7)
     selected_date_range = st.date_input(
         "Select Date Range",
         value=(default_start, today),
-        max_value=today
+        max_value=today,  # Prevent selecting future dates
+        help="Select a date range up to 180 days"
     )
     
     refresh = st.button("Refresh Data")
 
-# Update the data fetching logic
+# Update the data fetching logic with validation
 if refresh or 'latest_order' not in st.session_state:
     if len(selected_date_range) == 2:
         start_date, end_date = selected_date_range
-        token = get_walmart_token()
-        if token:
-            latest_order = fetch_latest_order(token, start_date, end_date)
-            st.session_state['latest_order'] = latest_order
+        if start_date <= end_date and end_date <= today:
+            token = get_walmart_token()
+            if token:
+                with st.spinner('Fetching orders...'):  # Add loading indicator
+                    latest_order = fetch_latest_order(token, start_date, end_date)
+                    st.session_state['latest_order'] = latest_order
+        else:
+            st.error("Invalid date range selected. End date must not be in the future.")
 
 # Process Latest Order Data
 processed_order = []
