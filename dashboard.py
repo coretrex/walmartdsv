@@ -55,8 +55,8 @@ def get_walmart_token():
         st.error(f"Failed to get Walmart API token: {str(e)} - Response: {response.text}")
         return None
 
-# Function to fetch latest order from Walmart API
-def fetch_latest_order(token):
+# Modify the fetch_latest_order function to accept date parameters
+def fetch_latest_order(token, start_date, end_date):
     if not token:
         st.error("Error: No valid token provided for fetching orders.")
         return []
@@ -70,32 +70,43 @@ def fetch_latest_order(token):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 50,  # Increased limit to ensure we get all orders from last 3 days
-        "createdStartDate": (datetime.datetime.now() - datetime.timedelta(days=3)).strftime('%Y-%m-%dT00:00:00.000Z')
+        "limit": 100,  # Increased limit
+        "createdStartDate": start_date.strftime('%Y-%m-%dT00:00:00.000Z'),
+        "createdEndDate": end_date.strftime('%Y-%m-%dT23:59:59.999Z')
     }
+    
+    all_orders = []
     try:
-        response = requests.get(ORDERS_URL, headers=headers, params=params)
-        response.raise_for_status()
-        orders = response.json()
-        
-        if not orders:
-            return []
+        while True:
+            response = requests.get(ORDERS_URL, headers=headers, params=params)
+            response.raise_for_status()
+            orders = response.json()
             
-        order_list = orders.get("list", {}).get("elements", {}).get("order", [])
-        
-        if not order_list:
-            return []
-        
-        order_list = [o for o in order_list if isinstance(o, dict)]
-        if not order_list:
-            return []
+            if not orders:
+                break
+                
+            order_list = orders.get("list", {}).get("elements", {}).get("order", [])
+            
+            if not order_list:
+                break
+            
+            order_list = [o for o in order_list if isinstance(o, dict)]
+            all_orders.extend(order_list)
+            
+            # Check if there are more pages
+            next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
+            if not next_cursor:
+                break
+                
+            # Update params for next page
+            params["nextCursor"] = next_cursor
         
         # Sort by orderDate in descending order
-        sorted_orders = sorted(order_list, key=lambda x: x.get("orderDate", ""), reverse=True)
+        sorted_orders = sorted(all_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
         return sorted_orders
 
     except requests.RequestException as e:
-        st.error(f"Failed to fetch latest order from Walmart API: {str(e)}")
+        st.error(f"Failed to fetch orders from Walmart API: {str(e)}")
         return []
 
 # Add these functions after the existing imports and before the page config
@@ -183,24 +194,25 @@ with st.sidebar:
     else:
         selected_sku = "All"
     
-    # Add date range filter
+    # Modify date range selector to allow broader date selection
     today = datetime.date.today()
-    three_days_ago = today - datetime.timedelta(days=3)
+    default_start = today - datetime.timedelta(days=7)  # Default to last 7 days
     selected_date_range = st.date_input(
         "Select Date Range",
-        value=(three_days_ago, today),
-        min_value=three_days_ago,
+        value=(default_start, today),
         max_value=today
     )
     
     refresh = st.button("Refresh Data")
 
-# Get the data
+# Update the data fetching logic
 if refresh or 'latest_order' not in st.session_state:
-    token = get_walmart_token()
-    if token:
-        latest_order = fetch_latest_order(token)
-        st.session_state['latest_order'] = latest_order
+    if len(selected_date_range) == 2:
+        start_date, end_date = selected_date_range
+        token = get_walmart_token()
+        if token:
+            latest_order = fetch_latest_order(token, start_date, end_date)
+            st.session_state['latest_order'] = latest_order
 
 # Process Latest Order Data
 processed_order = []
