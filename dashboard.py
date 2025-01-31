@@ -165,6 +165,45 @@ def save_orders_to_db(processed_orders):
     conn.commit()
     conn.close()
 
+def sync_historical_data():
+    """Sync last 6 months of data from Walmart API to database"""
+    end_date = datetime.date.today()
+    start_date = end_date - datetime.timedelta(days=180)
+    
+    token = get_walmart_token()
+    if token:
+        with st.spinner('Syncing historical data... This may take a few minutes...'):
+            historical_orders = fetch_latest_order(token, start_date, end_date)
+            if historical_orders:
+                # Process and save historical orders
+                processed_orders = []
+                for order in historical_orders:
+                    if isinstance(order, dict):
+                        order_lines = order.get("orderLines", {}).get("orderLine", [])
+                        for line in order_lines:
+                            if isinstance(line, dict):
+                                item = line.get("item", {})
+                                charges = line.get("charges", {}).get("charge", [])
+                                unit_price = float(charges[0].get("chargeAmount", {}).get("amount", 0)) if charges else 0
+                                quantity = float(line.get("orderLineQuantity", {}).get("amount", 1))
+                                quantity = quantity if quantity > 0 else 1
+                                
+                                processed_orders.append({
+                                    "SKU": item.get("sku", "N/A"),
+                                    "Item Name": item.get("productName", "N/A"),
+                                    "Quantity": quantity,
+                                    "Unit Price ($)": unit_price,
+                                    "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
+                                    "Order Date": datetime.datetime.fromtimestamp(
+                                        int(str(order.get("orderDate", 0))[:10])
+                                    ).strftime('%Y-%m-%d %H:%M:%S')
+                                })
+                
+                save_orders_to_db(processed_orders)
+                st.success(f"Successfully synced {len(processed_orders)} orders from the last 6 months!")
+                return True
+    return False
+
 # Streamlit Dashboard Setup
 st.title("Walmart DSV Dashboard")
 
@@ -194,42 +233,92 @@ st.markdown("""
 with st.sidebar:
     st.header("Settings")
     
-    # Add SKU filter
-    if 'latest_order' in st.session_state and st.session_state['latest_order']:
-        all_skus = sorted(list(set(
-            item.get("item", {}).get("sku", "N/A") 
-            for order in st.session_state['latest_order'] 
-            for item in order.get("orderLines", {}).get("orderLine", [])
-            if isinstance(item, dict)
-        )))
-        selected_sku = st.selectbox("Filter by SKU", ["All"] + all_skus)
-    else:
-        selected_sku = "All"
+    # Add sync button at the top
+    if st.button("Sync Last 6 Months Data"):
+        sync_historical_data()
     
-    # Modify date range selector with validation
+    # Add SKU filter
+    conn = sqlite3.connect('walmart_orders.db')
+    all_skus = pd.read_sql_query('SELECT DISTINCT sku FROM orders ORDER BY sku', conn)['sku'].tolist()
+    conn.close()
+    
+    selected_sku = st.selectbox("Filter by SKU", ["All"] + all_skus)
+    
+    # Date range selector
     today = datetime.date.today()
     default_start = today - datetime.timedelta(days=7)
     selected_date_range = st.date_input(
         "Select Date Range",
         value=(default_start, today),
-        max_value=today,  # Prevent selecting future dates
+        max_value=today,
         help="Select a date range up to 180 days"
     )
     
     refresh = st.button("Refresh Data")
 
-# Update the data fetching logic with validation
-if refresh or 'latest_order' not in st.session_state:
+# Modify the data fetching logic to prioritize database
+if refresh or 'df' not in st.session_state:
     if len(selected_date_range) == 2:
         start_date, end_date = selected_date_range
-        if start_date <= end_date and end_date <= today:
+        
+        # Query database first
+        conn = sqlite3.connect('walmart_orders.db')
+        query = '''
+            SELECT 
+                sku as "SKU",
+                item_name as "Item Name",
+                quantity as "Quantity",
+                unit_price as "Unit Price ($)",
+                purchase_order_id as "Purchase Order ID",
+                order_date as "Order Date"
+            FROM orders
+            WHERE date(order_date) BETWEEN date(?) AND date(?)
+        '''
+        params = (start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d'))
+        
+        if selected_sku != "All":
+            query += ' AND sku = ?'
+            params += (selected_sku,)
+            
+        df = pd.read_sql_query(query, conn, params=params)
+        conn.close()
+        
+        # Only fetch from API if no data found in database for the date range
+        if df.empty and end_date >= (datetime.date.today() - datetime.timedelta(days=180)):
             token = get_walmart_token()
             if token:
-                with st.spinner('Fetching orders...'):  # Add loading indicator
+                with st.spinner('Fetching recent orders from API...'):
                     latest_order = fetch_latest_order(token, start_date, end_date)
-                    st.session_state['latest_order'] = latest_order
-        else:
-            st.error("Invalid date range selected. End date must not be in the future.")
+                    if latest_order:
+                        # Process orders and update database
+                        processed_order = []
+                        for order in latest_order:
+                            if isinstance(order, dict):
+                                order_lines = order.get("orderLines", {}).get("orderLine", [])
+                                for line in order_lines:
+                                    if isinstance(line, dict):
+                                        item = line.get("item", {})
+                                        charges = line.get("charges", {}).get("charge", [])
+                                        unit_price = float(charges[0].get("chargeAmount", {}).get("amount", 0)) if charges else 0
+                                        quantity = float(line.get("orderLineQuantity", {}).get("amount", 1))
+                                        quantity = quantity if quantity > 0 else 1
+                                        
+                                        processed_order.append({
+                                            "SKU": item.get("sku", "N/A"),
+                                            "Item Name": item.get("productName", "N/A"),
+                                            "Quantity": quantity,
+                                            "Unit Price ($)": unit_price,
+                                            "Purchase Order ID": order.get("purchaseOrderId", "N/A"),
+                                            "Order Date": datetime.datetime.fromtimestamp(
+                                                int(str(order.get("orderDate", 0))[:10])
+                                            ).strftime('%Y-%m-%d %H:%M:%S')
+                                        })
+                        save_orders_to_db(processed_order)
+                        
+                        # Refresh dataframe from database
+                        df = pd.read_sql_query(query, conn, params=params)
+        
+        st.session_state['df'] = df
 
 # Process Latest Order Data
 processed_order = []
