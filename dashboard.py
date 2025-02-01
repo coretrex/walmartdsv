@@ -166,13 +166,13 @@ def save_orders_to_db(processed_orders):
     conn.close()
 
 def sync_historical_data():
-    """Sync last 6 months of data from Walmart API to database"""
+    """Sync last 2 weeks of data from Walmart API to database"""
     end_date = datetime.date.today()
-    start_date = end_date - datetime.timedelta(days=180)
+    start_date = end_date - datetime.timedelta(days=14)  # Changed from 180 to 14 days
     
     token = get_walmart_token()
     if token:
-        with st.spinner('Syncing historical data... This may take a few minutes...'):
+        with st.spinner('Syncing data from the last 2 weeks... This may take a moment...'):
             historical_orders = fetch_latest_order(token, start_date, end_date)
             if historical_orders:
                 # Process and save historical orders
@@ -200,7 +200,7 @@ def sync_historical_data():
                                 })
                 
                 save_orders_to_db(processed_orders)
-                st.success(f"Successfully synced {len(processed_orders)} orders from the last 6 months!")
+                st.success(f"Successfully synced {len(processed_orders)} orders from the last 2 weeks!")
                 return True
     return False
 
@@ -233,8 +233,8 @@ st.markdown("""
 with st.sidebar:
     st.header("Settings")
     
-    # Add sync button at the top
-    if st.button("Sync Last 6 Months Data"):
+    # Update button text to reflect 2 weeks instead of 6 months
+    if st.button("Sync Last 2 Weeks Data"):
         sync_historical_data()
     
     # Add SKU filter
