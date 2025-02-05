@@ -86,76 +86,61 @@ def fetch_latest_order(token, start_date, end_date):
         "createdEndDate": end_date.strftime('%Y-%m-%dT23:59:59.999Z')
     }
     
-    # Debug date range
-    st.info(f"Fetching orders from {params['createdStartDate']} to {params['createdEndDate']}")
-    
     all_orders = []
     progress_bar = st.progress(0)
     status_text = st.empty()
     page_count = 0
-    max_pages = 5  # Reduced max pages for safety
+    max_pages = 5
     
     try:
-        while page_count < max_pages:
-            page_count += 1
-            
-            try:
-                response = requests.get(ORDERS_URL, headers=headers, params=params)
+        with st.spinner('Fetching orders...'):
+            while page_count < max_pages:
+                page_count += 1
                 
-                # Debug response status
-                st.write(f"Page {page_count} status: {response.status_code}")
-                
-                if response.status_code == 429:
-                    status_text.text("Rate limit reached. Waiting...")
-                    time.sleep(1)
-                    continue
+                try:
+                    response = requests.get(ORDERS_URL, headers=headers, params=params)
                     
-                response.raise_for_status()
-                orders = response.json()
+                    if response.status_code == 429:
+                        status_text.text("Rate limit reached. Waiting...")
+                        time.sleep(1)
+                        continue
+                        
+                    response.raise_for_status()
+                    orders = response.json()
+                    
+                except Exception as e:
+                    st.error(f"Error fetching orders: {str(e)}")
+                    break
                 
-            except Exception as e:
-                st.error(f"Error on page {page_count}: {str(e)}")
-                break
-            
-            # Debug response data
-            if page_count == 1:
-                st.write("First page response structure:", orders.keys())
-            
-            order_list = orders.get("list", {}).get("elements", {}).get("order", [])
-            if not order_list:
-                break
-            
-            all_orders.extend(order_list)
-            
-            status_text.text(f"Fetched {len(all_orders)} orders (Page {page_count})")
-            progress_bar.progress(page_count / max_pages)
-            
-            next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
-            if not next_cursor:
-                st.info("No more pages available")
-                break
+                order_list = orders.get("list", {}).get("elements", {}).get("order", [])
+                if not order_list:
+                    break
                 
-            params["nextCursor"] = next_cursor
-            time.sleep(0.2)  # Slightly increased delay between requests
+                all_orders.extend(order_list)
+                
+                progress_bar.progress(page_count / max_pages)
+                
+                next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
+                if not next_cursor:
+                    break
+                    
+                params["nextCursor"] = next_cursor
+                time.sleep(0.2)
 
-        status_text.empty()
         progress_bar.empty()
+        status_text.empty()
         
         # Remove any duplicates based on purchaseOrderId
         unique_orders = {order.get("purchaseOrderId"): order for order in all_orders if isinstance(order, dict)}.values()
         final_orders = list(unique_orders)
         
         if final_orders:
-            st.success(f"Successfully fetched {len(final_orders)} unique orders")
-        else:
-            st.warning("No orders found in the specified date range")
+            st.success(f"Successfully fetched {len(final_orders)} orders")
             
         return sorted(final_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
 
     except Exception as e:
         st.error(f"Unexpected error: {str(e)}")
-        if hasattr(e, 'response'):
-            st.error(f"Response content: {e.response.text}")
         return []
 
 # Add these functions after the existing imports and before the page config
