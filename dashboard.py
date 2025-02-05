@@ -86,32 +86,31 @@ def fetch_latest_order(token, start_date, end_date):
         "createdEndDate": end_date.strftime('%Y-%m-%dT23:59:59.999Z')
     }
     
-    all_orders = []
+    all_orders = set()  # Use set to prevent duplicates
     progress_bar = st.progress(0)
     status_text = st.empty()
     page_count = 0
     max_pages = 10
-    last_cursor = None
+    seen_cursors = set()  # Track all cursors we've seen
     
     try:
         while page_count < max_pages:
             page_count += 1
             
-            # Check if we're stuck in a loop
-            if 'nextCursor' in params and params['nextCursor'] == last_cursor:
-                st.warning("Pagination loop detected, stopping fetch")
+            # Check if cursor has been seen before
+            current_cursor = params.get('nextCursor')
+            if current_cursor and current_cursor in seen_cursors:
+                st.warning(f"Duplicate cursor detected: {current_cursor}")
                 break
-            
-            last_cursor = params.get('nextCursor')
+            if current_cursor:
+                seen_cursors.add(current_cursor)
             
             try:
                 response = requests.get(ORDERS_URL, headers=headers, params=params)
-                
                 if response.status_code == 429:
                     status_text.text("Rate limit reached. Waiting...")
                     time.sleep(1)
                     continue
-                
                 response.raise_for_status()
                 
             except requests.RequestException as e:
@@ -120,23 +119,35 @@ def fetch_latest_order(token, start_date, end_date):
             
             try:
                 orders = response.json()
+                # Debug output for response structure
+                st.write(f"Response structure: {list(orders.keys())}")
             except ValueError as e:
                 st.error(f"Invalid JSON response on page {page_count}")
                 break
             
-            if not orders or "list" not in orders:
-                st.info("No more orders to fetch")
+            if not isinstance(orders, dict) or "list" not in orders:
+                st.error(f"Unexpected response format on page {page_count}")
                 break
-                
+            
             order_list = orders.get("list", {}).get("elements", {}).get("order", [])
-            if not order_list:
-                st.info("Empty order list received")
+            if not isinstance(order_list, list):
+                st.error(f"Invalid order list format on page {page_count}")
                 break
             
-            new_orders = [o for o in order_list if isinstance(o, dict)]
-            all_orders.extend(new_orders)
+            # Add order IDs to set to prevent duplicates
+            new_orders = []
+            for order in order_list:
+                if isinstance(order, dict):
+                    order_id = order.get("purchaseOrderId")
+                    if order_id and order_id not in all_orders:
+                        all_orders.add(order_id)
+                        new_orders.append(order)
             
-            status_text.text(f"Fetched {len(all_orders)} orders (Page {page_count})")
+            if not new_orders:
+                st.info(f"No new orders on page {page_count}")
+                break
+            
+            status_text.text(f"Found {len(all_orders)} unique orders (Page {page_count})")
             progress_bar.progress(page_count / max_pages)
             
             next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
@@ -150,13 +161,18 @@ def fetch_latest_order(token, start_date, end_date):
         status_text.empty()
         progress_bar.empty()
         
-        if len(all_orders) > 0:
-            st.success(f"Successfully fetched {len(all_orders)} orders")
+        # Convert set back to list for final processing
+        final_orders = [order for order in orders.get("list", {}).get("elements", {}).get("order", [])
+                       if isinstance(order, dict) and order.get("purchaseOrderId") in all_orders]
         
-        return sorted(all_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
+        if final_orders:
+            st.success(f"Successfully fetched {len(final_orders)} unique orders")
+        
+        return sorted(final_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
 
     except Exception as e:
         st.error(f"Unexpected error: {str(e)}")
+        st.error(f"Error details: {type(e).__name__}")
         return []
 
 # Add these functions after the existing imports and before the page config
