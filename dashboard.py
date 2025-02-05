@@ -81,7 +81,7 @@ def fetch_latest_order(token, start_date, end_date):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 100,  # Back to 100 for fewer API calls
+        "limit": 100,
         "createdStartDate": start_date.strftime('%Y-%m-%dT00:00:00.000Z'),
         "createdEndDate": end_date.strftime('%Y-%m-%dT23:59:59.999Z')
     }
@@ -89,22 +89,26 @@ def fetch_latest_order(token, start_date, end_date):
     all_orders = []
     progress_bar = st.progress(0)
     status_text = st.empty()
+    page_count = 0
+    max_pages = 10  # Safeguard against infinite loops
     
     try:
-        while True:
+        while page_count < max_pages:
+            page_count += 1
+            
             try:
                 response = requests.get(ORDERS_URL, headers=headers, params=params)
                 
                 if response.status_code == 429:  # Too Many Requests
                     status_text.text("Rate limit reached. Waiting briefly...")
-                    time.sleep(1)  # Reduced from 5s to 1s
+                    time.sleep(1)
                     continue
                 
                 response.raise_for_status()
                 
             except requests.RequestException as e:
                 status_text.text(f"Request failed: {str(e)}. Retrying...")
-                time.sleep(0.5)  # Reduced from 2s to 0.5s
+                time.sleep(0.5)
                 continue
             
             if response.status_code == 404:
@@ -123,19 +127,23 @@ def fetch_latest_order(token, start_date, end_date):
             order_list = [o for o in order_list if isinstance(o, dict)]
             all_orders.extend(order_list)
             
-            # Update progress less frequently
-            status_text.text(f"Fetched {len(all_orders)} orders...")
-            progress_bar.progress(min(len(all_orders) / 200, 1.0))  # Assumes max ~200 orders
+            # Update progress with actual order count
+            status_text.text(f"Fetched {len(all_orders)} orders (Page {page_count})")
+            progress_bar.progress(page_count / max_pages)
             
             next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
             if not next_cursor:
                 break
                 
             params["nextCursor"] = next_cursor
-            time.sleep(0.1)  # Minimal delay between requests
+            time.sleep(0.1)
 
         status_text.empty()
         progress_bar.empty()
+        
+        if len(all_orders) > 0:
+            st.success(f"Successfully fetched {len(all_orders)} orders")
+        
         return sorted(all_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
 
     except requests.RequestException as e:
