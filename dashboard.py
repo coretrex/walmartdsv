@@ -86,93 +86,76 @@ def fetch_latest_order(token, start_date, end_date):
         "createdEndDate": end_date.strftime('%Y-%m-%dT23:59:59.999Z')
     }
     
-    all_orders = set()  # Use set to prevent duplicates
+    # Debug date range
+    st.info(f"Fetching orders from {params['createdStartDate']} to {params['createdEndDate']}")
+    
+    all_orders = []
     progress_bar = st.progress(0)
     status_text = st.empty()
     page_count = 0
-    max_pages = 10
-    seen_cursors = set()  # Track all cursors we've seen
+    max_pages = 5  # Reduced max pages for safety
     
     try:
         while page_count < max_pages:
             page_count += 1
             
-            # Check if cursor has been seen before
-            current_cursor = params.get('nextCursor')
-            if current_cursor and current_cursor in seen_cursors:
-                st.warning(f"Duplicate cursor detected: {current_cursor}")
-                break
-            if current_cursor:
-                seen_cursors.add(current_cursor)
-            
             try:
                 response = requests.get(ORDERS_URL, headers=headers, params=params)
+                
+                # Debug response status
+                st.write(f"Page {page_count} status: {response.status_code}")
+                
                 if response.status_code == 429:
                     status_text.text("Rate limit reached. Waiting...")
                     time.sleep(1)
                     continue
+                    
                 response.raise_for_status()
-                
-            except requests.RequestException as e:
-                st.error(f"Request failed on page {page_count}: {str(e)}")
-                break
-            
-            try:
                 orders = response.json()
-                # Debug output for response structure
-                st.write(f"Response structure: {list(orders.keys())}")
-            except ValueError as e:
-                st.error(f"Invalid JSON response on page {page_count}")
+                
+            except Exception as e:
+                st.error(f"Error on page {page_count}: {str(e)}")
                 break
             
-            if not isinstance(orders, dict) or "list" not in orders:
-                st.error(f"Unexpected response format on page {page_count}")
-                break
+            # Debug response data
+            if page_count == 1:
+                st.write("First page response structure:", orders.keys())
             
             order_list = orders.get("list", {}).get("elements", {}).get("order", [])
-            if not isinstance(order_list, list):
-                st.error(f"Invalid order list format on page {page_count}")
+            if not order_list:
                 break
             
-            # Add order IDs to set to prevent duplicates
-            new_orders = []
-            for order in order_list:
-                if isinstance(order, dict):
-                    order_id = order.get("purchaseOrderId")
-                    if order_id and order_id not in all_orders:
-                        all_orders.add(order_id)
-                        new_orders.append(order)
+            all_orders.extend(order_list)
             
-            if not new_orders:
-                st.info(f"No new orders on page {page_count}")
-                break
-            
-            status_text.text(f"Found {len(all_orders)} unique orders (Page {page_count})")
+            status_text.text(f"Fetched {len(all_orders)} orders (Page {page_count})")
             progress_bar.progress(page_count / max_pages)
             
             next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
             if not next_cursor:
                 st.info("No more pages available")
                 break
-            
+                
             params["nextCursor"] = next_cursor
-            time.sleep(0.1)
+            time.sleep(0.2)  # Slightly increased delay between requests
 
         status_text.empty()
         progress_bar.empty()
         
-        # Convert set back to list for final processing
-        final_orders = [order for order in orders.get("list", {}).get("elements", {}).get("order", [])
-                       if isinstance(order, dict) and order.get("purchaseOrderId") in all_orders]
+        # Remove any duplicates based on purchaseOrderId
+        unique_orders = {order.get("purchaseOrderId"): order for order in all_orders if isinstance(order, dict)}.values()
+        final_orders = list(unique_orders)
         
         if final_orders:
             st.success(f"Successfully fetched {len(final_orders)} unique orders")
-        
+        else:
+            st.warning("No orders found in the specified date range")
+            
         return sorted(final_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
 
     except Exception as e:
         st.error(f"Unexpected error: {str(e)}")
-        st.error(f"Error details: {type(e).__name__}")
+        if hasattr(e, 'response'):
+            st.error(f"Response content: {e.response.text}")
         return []
 
 # Add these functions after the existing imports and before the page config
