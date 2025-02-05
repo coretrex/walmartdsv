@@ -90,51 +90,60 @@ def fetch_latest_order(token, start_date, end_date):
     progress_bar = st.progress(0)
     status_text = st.empty()
     page_count = 0
-    max_pages = 10  # Safeguard against infinite loops
+    max_pages = 10
+    last_cursor = None
     
     try:
         while page_count < max_pages:
             page_count += 1
             
+            # Check if we're stuck in a loop
+            if 'nextCursor' in params and params['nextCursor'] == last_cursor:
+                st.warning("Pagination loop detected, stopping fetch")
+                break
+            
+            last_cursor = params.get('nextCursor')
+            
             try:
                 response = requests.get(ORDERS_URL, headers=headers, params=params)
                 
-                if response.status_code == 429:  # Too Many Requests
-                    status_text.text("Rate limit reached. Waiting briefly...")
+                if response.status_code == 429:
+                    status_text.text("Rate limit reached. Waiting...")
                     time.sleep(1)
                     continue
                 
                 response.raise_for_status()
                 
             except requests.RequestException as e:
-                status_text.text(f"Request failed: {str(e)}. Retrying...")
-                time.sleep(0.5)
-                continue
-            
-            if response.status_code == 404:
+                st.error(f"Request failed on page {page_count}: {str(e)}")
                 break
             
-            orders = response.json()
+            try:
+                orders = response.json()
+            except ValueError as e:
+                st.error(f"Invalid JSON response on page {page_count}")
+                break
             
             if not orders or "list" not in orders:
+                st.info("No more orders to fetch")
                 break
                 
             order_list = orders.get("list", {}).get("elements", {}).get("order", [])
-            
             if not order_list:
+                st.info("Empty order list received")
                 break
             
-            order_list = [o for o in order_list if isinstance(o, dict)]
-            all_orders.extend(order_list)
+            new_orders = [o for o in order_list if isinstance(o, dict)]
+            all_orders.extend(new_orders)
             
-            # Update progress with actual order count
             status_text.text(f"Fetched {len(all_orders)} orders (Page {page_count})")
             progress_bar.progress(page_count / max_pages)
             
             next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
             if not next_cursor:
+                st.info("No more pages available")
                 break
-                
+            
             params["nextCursor"] = next_cursor
             time.sleep(0.1)
 
@@ -146,10 +155,8 @@ def fetch_latest_order(token, start_date, end_date):
         
         return sorted(all_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
 
-    except requests.RequestException as e:
-        st.error(f"Failed to fetch orders from Walmart API: {str(e)}")
-        if hasattr(e, 'response') and hasattr(e.response, 'text'):
-            st.error(f"API Response: {e.response.text}")
+    except Exception as e:
+        st.error(f"Unexpected error: {str(e)}")
         return []
 
 # Add these functions after the existing imports and before the page config
