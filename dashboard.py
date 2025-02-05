@@ -68,7 +68,7 @@ def fetch_latest_order(token, start_date, end_date):
         st.error("Cannot fetch orders for future dates.")
         return []
     
-    if (end_date - start_date).days > 180:  # Optional: Add a reasonable date range limit
+    if (end_date - start_date).days > 180:
         st.error("Please select a date range of 180 days or less.")
         return []
     
@@ -81,21 +81,38 @@ def fetch_latest_order(token, start_date, end_date):
     }
     params = {
         "shipNode": DEFAULT_SHIP_NODE,
-        "limit": 100,
+        "limit": 100,  # Back to 100 for fewer API calls
         "createdStartDate": start_date.strftime('%Y-%m-%dT00:00:00.000Z'),
         "createdEndDate": end_date.strftime('%Y-%m-%dT23:59:59.999Z')
     }
     
     all_orders = []
+    progress_bar = st.progress(0)
+    status_text = st.empty()
+    
     try:
         while True:
-            response = requests.get(ORDERS_URL, headers=headers, params=params)
+            try:
+                response = requests.get(ORDERS_URL, headers=headers, params=params)
+                
+                if response.status_code == 429:  # Too Many Requests
+                    status_text.text("Rate limit reached. Waiting briefly...")
+                    time.sleep(1)  # Reduced from 5s to 1s
+                    continue
+                
+                response.raise_for_status()
+                
+            except requests.RequestException as e:
+                status_text.text(f"Request failed: {str(e)}. Retrying...")
+                time.sleep(0.5)  # Reduced from 2s to 0.5s
+                continue
+            
             if response.status_code == 404:
-                break  # No more orders to fetch
-            response.raise_for_status()
+                break
+            
             orders = response.json()
             
-            if not orders:
+            if not orders or "list" not in orders:
                 break
                 
             order_list = orders.get("list", {}).get("elements", {}).get("order", [])
@@ -106,19 +123,24 @@ def fetch_latest_order(token, start_date, end_date):
             order_list = [o for o in order_list if isinstance(o, dict)]
             all_orders.extend(order_list)
             
-            # Check if there are more pages
+            # Update progress less frequently
+            status_text.text(f"Fetched {len(all_orders)} orders...")
+            progress_bar.progress(min(len(all_orders) / 200, 1.0))  # Assumes max ~200 orders
+            
             next_cursor = orders.get("list", {}).get("meta", {}).get("nextCursor")
             if not next_cursor:
                 break
                 
-            # Update params for next page
             params["nextCursor"] = next_cursor
+            time.sleep(0.1)  # Minimal delay between requests
 
+        status_text.empty()
+        progress_bar.empty()
         return sorted(all_orders, key=lambda x: x.get("orderDate", ""), reverse=True)
 
     except requests.RequestException as e:
         st.error(f"Failed to fetch orders from Walmart API: {str(e)}")
-        if hasattr(e.response, 'text'):
+        if hasattr(e, 'response') and hasattr(e.response, 'text'):
             st.error(f"API Response: {e.response.text}")
         return []
 
