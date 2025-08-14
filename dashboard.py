@@ -25,11 +25,74 @@ st.set_page_config(
 )
 
 # Walmart DSV API Credentials
-CLIENT_ID = "f657e76c-6e19-4459-8fda-ecf3ee17db44"
-CLIENT_SECRET = "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc"
+# Try to get credentials from environment variables first, fall back to hardcoded values
+import os
+
+CLIENT_ID = os.getenv("WALMART_CLIENT_ID", "f657e76c-6e19-4459-8fda-ecf3ee17db44")
+CLIENT_SECRET = os.getenv("WALMART_CLIENT_SECRET", "ALsE88YTxPZ4dd7XKcF00FNKDlfjh9iIig7M5Z4AUabxn_KcJ6uKFcGtAdvfke5fgiDUqbXfXITzMg5U_ieEnKc")
+
+# Walmart API endpoints - try both production and sandbox
 TOKEN_URL = "https://marketplace.walmartapis.com/v3/token"
 ORDERS_URL = "https://marketplace.walmartapis.com/v3/orders"
 DEFAULT_SHIP_NODE = "39931104"
+
+# Alternative endpoints for troubleshooting
+SANDBOX_TOKEN_URL = "https://sandbox.walmartapis.com/v3/token"
+SANDBOX_ORDERS_URL = "https://sandbox.walmartapis.com/v3/orders"
+
+# Validate credentials format
+if not CLIENT_ID or not CLIENT_SECRET:
+    st.error("Missing Walmart API credentials. Please set WALMART_CLIENT_ID and WALMART_CLIENT_SECRET environment variables.")
+    st.stop()
+
+# Function to validate credentials format
+def validate_credentials():
+    """Validate that credentials are in the correct format"""
+    if not CLIENT_ID or len(CLIENT_ID) < 10:
+        st.error("Invalid CLIENT_ID format")
+        return False
+    if not CLIENT_SECRET or len(CLIENT_SECRET) < 10:
+        st.error("Invalid CLIENT_SECRET format")
+        return False
+    
+    # Test the base64 encoding
+    try:
+        credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        st.write(f"Credentials encoded successfully. Length: {len(encoded_credentials)}")
+        return True
+    except Exception as e:
+        st.error(f"Error encoding credentials: {e}")
+        return False
+
+# Function to test different API endpoints
+def test_api_endpoints():
+    """Test both production and sandbox endpoints"""
+    endpoints = [
+        ("Production", TOKEN_URL),
+        ("Sandbox", SANDBOX_TOKEN_URL)
+    ]
+    
+    results = []
+    for name, url in endpoints:
+        try:
+            credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
+            encoded_credentials = base64.b64encode(credentials.encode()).decode()
+            headers = {
+                "Accept": "application/json",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": f"Basic {encoded_credentials}",
+                "WM_QOS.CORRELATION_ID": str(uuid.uuid4()),
+                "WM_SVC.NAME": "Walmart Marketplace"
+            }
+            data = "grant_type=client_credentials"
+            
+            response = requests.post(url, headers=headers, data=data, timeout=10)
+            results.append((name, url, response.status_code, response.text))
+        except Exception as e:
+            results.append((name, url, "ERROR", str(e)))
+    
+    return results
 
 # Function to get Walmart API token
 def get_walmart_token():
@@ -45,6 +108,16 @@ def get_walmart_token():
     data = "grant_type=client_credentials"
     try:
         response = requests.post(TOKEN_URL, headers=headers, data=data)
+        
+        # Debug information
+        st.write(f"Token request status: {response.status_code}")
+        st.write(f"Token request headers: {dict(headers)}")
+        
+        if response.status_code != 200:
+            st.error(f"Token request failed with status {response.status_code}")
+            st.error(f"Response text: {response.text}")
+            return None
+            
         response.raise_for_status()
         token_data = response.json()
         access_token = token_data.get("access_token")
@@ -53,7 +126,10 @@ def get_walmart_token():
             return None
         return access_token
     except requests.RequestException as e:
-        st.error(f"Failed to get Walmart API token: {str(e)} - Response: {response.text}")
+        st.error(f"Failed to get Walmart API token: {str(e)}")
+        if hasattr(e, 'response') and e.response is not None:
+            st.error(f"Response status: {e.response.status_code}")
+            st.error(f"Response text: {e.response.text}")
         return None
 
 # Function to fetch latest order from Walmart API
@@ -185,6 +261,31 @@ def save_orders_to_db(processed_orders):
 # Streamlit Dashboard Setup
 st.title("Walmart DSV Dashboard")
 
+# Add troubleshooting information
+with st.expander("🔍 Troubleshooting Authentication Issues"):
+    st.markdown("""
+    **Common causes of UNAUTHORIZED errors:**
+    
+    1. **Expired Credentials**: Your Client ID or Client Secret may have expired
+    2. **Wrong Environment**: You might be using production credentials with sandbox endpoints or vice versa
+    3. **Incorrect Format**: The credentials might not be in the correct format
+    4. **API Access**: Your account might not have access to the specific API endpoints
+    5. **Rate Limiting**: You might be hitting rate limits
+    
+    **Steps to resolve:**
+    
+    1. **Check your Walmart Developer Portal**: Verify your credentials are still active
+    2. **Use Environment Variables**: Set your credentials as environment variables for security:
+       ```bash
+       export WALMART_CLIENT_ID="your_client_id"
+       export WALMART_CLIENT_SECRET="your_client_secret"
+       ```
+    3. **Test with the debug tools**: Use the debug section in the sidebar to test your credentials
+    4. **Contact Walmart Support**: If the issue persists, contact Walmart Developer Support
+    
+    **Current Status**: Use the debug tools in the sidebar to test your authentication.
+    """)
+
 # Add custom CSS to make the table larger and reduce margins/padding
 st.markdown("""
     <style>
@@ -210,6 +311,40 @@ st.markdown("""
 # Sidebar controls
 with st.sidebar:
     st.header("Settings")
+    
+    # Add debug section
+    with st.expander("🔧 Debug Authentication"):
+        st.write("**Current Credentials:**")
+        st.write(f"Client ID: {CLIENT_ID[:8]}...{CLIENT_ID[-8:] if len(CLIENT_ID) > 16 else CLIENT_ID}")
+        st.write(f"Client Secret: {CLIENT_SECRET[:8]}...{CLIENT_SECRET[-8:] if len(CLIENT_SECRET) > 16 else CLIENT_SECRET}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("Test Credentials"):
+                if validate_credentials():
+                    st.success("Credentials format is valid")
+                    token = get_walmart_token()
+                    if token:
+                        st.success("✅ Authentication successful!")
+                        st.write(f"Token: {token[:20]}...{token[-20:] if len(token) > 40 else token}")
+                    else:
+                        st.error("❌ Authentication failed")
+                else:
+                    st.error("❌ Credentials format is invalid")
+        
+        with col2:
+            if st.button("Test Endpoints"):
+                st.write("Testing API endpoints...")
+                results = test_api_endpoints()
+                for name, url, status, response in results:
+                    st.write(f"**{name}:** {url}")
+                    st.write(f"Status: {status}")
+                    if status == 200:
+                        st.success("✅ Endpoint working")
+                    else:
+                        st.error(f"❌ Error: {response[:200]}...")
+                    st.write("---")
     
     # Add SKU filter
     if 'latest_order' in st.session_state and st.session_state['latest_order']:
