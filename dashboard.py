@@ -94,6 +94,28 @@ def test_api_endpoints():
     
     return results
 
+# Function to decode and verify credentials
+def decode_credentials():
+    """Decode the base64 credentials to verify they're correct"""
+    try:
+        credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+        
+        # Decode back to verify
+        decoded = base64.b64decode(encoded_credentials).decode()
+        client_id_decoded, client_secret_decoded = decoded.split(':', 1)
+        
+        return {
+            "original_client_id": CLIENT_ID,
+            "decoded_client_id": client_id_decoded,
+            "original_client_secret": CLIENT_SECRET,
+            "decoded_client_secret": client_secret_decoded,
+            "encoded_credentials": encoded_credentials,
+            "match": CLIENT_ID == client_id_decoded and CLIENT_SECRET == client_secret_decoded
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 # Function to get Walmart API token
 def get_walmart_token():
     credentials = f"{CLIENT_ID}:{CLIENT_SECRET}"
@@ -112,10 +134,27 @@ def get_walmart_token():
         # Debug information
         st.write(f"Token request status: {response.status_code}")
         st.write(f"Token request headers: {dict(headers)}")
+        st.write(f"Request URL: {TOKEN_URL}")
+        st.write(f"Request data: {data}")
         
         if response.status_code != 200:
             st.error(f"Token request failed with status {response.status_code}")
             st.error(f"Response text: {response.text}")
+            
+            # Additional debugging for common error codes
+            if response.status_code == 401:
+                st.error("🔍 401 Unauthorized - This usually means:")
+                st.error("   • Your credentials are expired or invalid")
+                st.error("   • You're using the wrong environment (prod vs sandbox)")
+                st.error("   • Your account doesn't have API access")
+            elif response.status_code == 403:
+                st.error("🔍 403 Forbidden - This usually means:")
+                st.error("   • Your account doesn't have permission for this API")
+                st.error("   • Your API subscription has expired")
+            elif response.status_code == 429:
+                st.error("🔍 429 Too Many Requests - Rate limiting")
+                st.error("   • Wait a few minutes and try again")
+            
             return None
             
         response.raise_for_status()
@@ -317,6 +356,18 @@ with st.sidebar:
         st.write("**Current Credentials:**")
         st.write(f"Client ID: {CLIENT_ID[:8]}...{CLIENT_ID[-8:] if len(CLIENT_ID) > 16 else CLIENT_ID}")
         st.write(f"Client Secret: {CLIENT_SECRET[:8]}...{CLIENT_SECRET[-8:] if len(CLIENT_SECRET) > 16 else CLIENT_SECRET}")
+        
+        # Add credential verification
+        if st.button("🔍 Verify Credentials"):
+            decoded_info = decode_credentials()
+            if "error" in decoded_info:
+                st.error(f"Error decoding credentials: {decoded_info['error']}")
+            else:
+                st.write("**Credential Verification:**")
+                st.write(f"✅ Client ID matches: {decoded_info['match']}")
+                st.write(f"✅ Client Secret matches: {decoded_info['match']}")
+                st.write(f"📏 Encoded length: {len(decoded_info['encoded_credentials'])}")
+                st.write(f"🔑 Encoded preview: {decoded_info['encoded_credentials'][:20]}...")
         
         col1, col2 = st.columns(2)
         
